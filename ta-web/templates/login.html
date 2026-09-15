@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}登录 · 计算机系统II{% endblock %}
+{% block content %}
+<div class="tabs">
+  <button id="tab-student" class="{{ 'active' if tab != 'admin' else '' }}" onclick="showTab('student')">学生登录</button>
+  <button id="tab-admin" class="{{ 'active' if tab == 'admin' else '' }}" onclick="showTab('admin')">管理员登录</button>
+</div>
+
+<div id="pane-student" class="{{ 'hidden' if tab == 'admin' else '' }}">
+  <form method="post" action="/login/student">
+    <label>学号</label>
+    <input name="student_id" autocomplete="username" placeholder="请输入学号" required>
+    <label>姓名</label>
+    <input name="student_name" autocomplete="off" placeholder="请输入姓名" required>
+    <button class="btn" type="submit">登录</button>
+  </form>
+  {% if student_error %}<div class="error">{{ student_error }}</div>{% endif %}
+</div>
+
+<div id="pane-admin" class="{{ 'hidden' if tab != 'admin' else '' }}">
+  <form method="post" action="/login/admin">
+    <label>账号</label>
+    <input name="admin_account" autocomplete="username" placeholder="请输入账号" required>
+    <label>密码</label>
+    <input name="admin_password" type="password" autocomplete="current-password" placeholder="请输入密码" required>
+    <button class="btn" type="submit">登录</button>
+  </form>
+  {% if admin_error %}<div class="error">{{ admin_error }}</div>{% endif %}
+</div>
+
+<div class="hint">登录即表示你同意仅将本系统用于课程相关用途</div>
+{% endblock %}
+{% block script %}
+<script>
+  function showTab(tab){
+    document.getElementById('pane-student').classList.toggle('hidden', tab!=='student');
+    document.getElementById('pane-admin').classList.toggle('hidden', tab!=='admin');
+    document.getElementById('tab-student').classList.toggle('active', tab==='student');
+    document.getElementById('tab-admin').classList.toggle('active', tab==='admin');
+  }
+</script>
+{% endblock %}

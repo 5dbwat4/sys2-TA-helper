@@ -1,0 +1,17 @@
+# secrets / runtime data — never commit
+config.json
+secret.key
+roster.json
+grades.csv
+comments.json
+
+# python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+*.egg-info/
+
+# misc
+.DS_Store
+*.log

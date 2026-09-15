@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}暂无成绩 · 计算机系统II{% endblock %}
+{% block content %}
+<div class="panel">未在成绩名单中找到你的学号（{{ user.id }}），请确认名单是否已导入。</div>
+<div class="row" style="margin-top:20px"><a class="link" href="/dashboard">返回控制台</a><a class="link" href="/logout">退出登录</a></div>
+{% endblock %}

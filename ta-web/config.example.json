@@ -1,0 +1,13 @@
+{
+  "teacher": {
+    "account": "SysTeacher",
+    "name": "教师",
+    "password_hash": "<用 python3 -c \"from werkzeug.security import generate_password_hash; print(generate_password_hash('你的密码'))\" 生成>"
+  },
+  "ta_tails": ["0001", "0002", "0003"],
+  "ta_names": {
+    "0001": "ta-one",
+    "0002": "ta-two",
+    "0003": "ta-three"
+  }
+}

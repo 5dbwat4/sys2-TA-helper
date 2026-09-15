@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}控制台 · 计算机系统II{% endblock %}
+{% block heading %}控制台{% endblock %}
+{% block sub %}
+  <span class="who">{{ user.name }} · {{ user.id }}</span>
+  {% if user.role == 'student' %}<span class="badge">学生</span>
+  {% elif user.role == 'ta' %}<span class="badge">助教</span>
+  {% else %}<span class="badge">教师</span>{% endif %}
+{% endblock %}
+{% block content %}
+{% if user.role == 'student' %}
+  <a class="entry" href="/grade/">
+    <div class="entry-title">📊 我的成绩</div>
+    <div class="entry-desc">查看实验与平时成绩</div>
+  </a>
+{% else %}
+  <a class="entry" href="/grade/staff">
+    <div class="entry-title">📋 学生列表</div>
+    <div class="entry-desc">查看并编辑每位学生的成绩</div>
+  </a>
+  <a class="entry" href="/grade/batch">
+    <div class="entry-title">📝 批量录入</div>
+    <div class="entry-desc">按尾号批量提交分数</div>
+  </a>
+  <a class="entry" href="/grade/single">
+    <div class="entry-title">✏️ 按尾号批改</div>
+    <div class="entry-desc">单个学生打分与评语</div>
+  </a>
+{% endif %}
+<div class="row" style="margin-top:22px">
+  <a class="link" href="/logout">退出登录</a>
+</div>
+<style>
+  .entry{display:block;border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:12px;
+    text-decoration:none;color:inherit;transition:.15s}
+  .entry:hover{border-color:var(--brand);box-shadow:0 6px 18px -8px rgba(37,99,235,.35);transform:translateY(-1px)}
+  .entry-title{font-weight:700;font-size:15px}
+  .entry-desc{color:var(--muted);font-size:13px;margin-top:4px}
+</style>
+{% endblock %}

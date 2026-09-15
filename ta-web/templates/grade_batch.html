@@ -1,0 +1,49 @@
+{% extends "grade_base.html" %}
+{% block title %}批量录入 · 助教管理{% endblock %}
+{% block header %}批量录入{% endblock %}
+{% block content %}
+<div class="table-wrap" style="padding:20px;max-width:820px">
+  <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end">
+    <div>
+      <label style="font-size:12px;color:#666;display:block;margin-bottom:4px">项目</label>
+      <select id="csv_key">
+        {% for cfg in lab_config %}<option value="{{ cfg.csv_key }}">{{ cfg.display }}</option>{% endfor %}
+        {% for cfg in daily_config %}<option value="{{ cfg.csv_key }}">{{ cfg.display }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label style="font-size:12px;color:#666;display:block;margin-bottom:4px">类型</label>
+      <select id="score_type"><option value="rpt">报告/分数</option><option value="exp">实验分数</option></select>
+    </div>
+  </div>
+  <label style="font-size:12px;color:#666;display:block;margin:16px 0 4px">每行一条：<code>尾号 分数</code>（尾号 = 学号后四位）</label>
+  <textarea id="data" rows="10" style="width:100%" placeholder="例如：&#10;2120 100&#10;2049 95"></textarea>
+  <div style="margin-top:14px;display:flex;gap:12px">
+    <button class="btn btn-primary" onclick="submitBatch()">提交</button>
+    <a href="/grade/staff" class="btn btn-default">返回</a>
+  </div>
+  <div id="result" style="margin-top:16px"></div>
+</div>
+<datalist id="tails">{% for r in ref %}<option value="{{ r.tail }}">{{ r.sid }} {{ r.name }}</option>{% endfor %}</datalist>
+{% endblock %}
+{% block extra_js %}
+<script>
+async function submitBatch(){
+  const result=document.getElementById('result');
+  const body=new URLSearchParams({
+    csv_key:document.getElementById('csv_key').value,
+    score_type:document.getElementById('score_type').value,
+    data:document.getElementById('data').value,
+  });
+  const res=await fetch('/grade/batch/submit',{method:'POST',body});
+  const j=await res.json();
+  if(!j.ok){result.innerHTML='<div class="error-box">'+j.error+'</div>';return;}
+  let html='<div class="success-box">成功更新 '+j.count+' 条</div>';
+  if(j.errors&&j.errors.length){html+='<div class="error-box">'+j.errors.join('<br>')+'</div>';}
+  html+='<div class="table-wrap"><table><thead><tr><th>尾号</th><th>学号</th><th>姓名</th><th>旧值</th><th>新值</th></tr></thead><tbody>';
+  for(const r of j.results){html+=`<tr><td>${r.tail}</td><td>${r.sid}</td><td>${r.name}</td><td>${r.old}</td><td>${r.new}</td></tr>`;}
+  html+='</tbody></table></div>';
+  result.innerHTML=html;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends "grade_base.html" %}
+{% block title %}按尾号批改 · 助教管理{% endblock %}
+{% block header %}按尾号批改{% endblock %}
+{% block content %}
+<div class="table-wrap" style="padding:20px;max-width:820px">
+  <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end">
+    <div>
+      <label style="font-size:12px;color:#666;display:block;margin-bottom:4px">项目</label>
+      <select id="csv_key">
+        {% for cfg in lab_config %}<option value="{{ cfg.csv_key }}">{{ cfg.display }}</option>{% endfor %}
+        {% for cfg in daily_config %}<option value="{{ cfg.csv_key }}">{{ cfg.display }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label style="font-size:12px;color:#666;display:block;margin-bottom:4px">类型</label>
+      <select id="score_type"><option value="rpt">报告/分数</option><option value="exp">实验分数</option></select>
+    </div>
+    <div>
+      <label style="font-size:12px;color:#666;display:block;margin-bottom:4px">学号尾号</label>
+      <input type="text" id="tail" list="tails" style="width:120px" placeholder="后四位">
+    </div>
+    <div>
+      <label style="font-size:12px;color:#666;display:block;margin-bottom:4px">分数</label>
+      <input type="text" id="score" style="width:100px">
+    </div>
+    <button class="btn btn-primary" onclick="submitSingle()">提交</button>
+    <a href="/grade/staff" class="btn btn-default">返回</a>
+  </div>
+  <label style="font-size:12px;color:#666;display:block;margin:16px 0 4px">评语（可选）</label>
+  <textarea id="comment" rows="2" style="width:100%"></textarea>
+  <div id="result" style="margin-top:16px"></div>
+</div>
+<datalist id="tails">{% for r in ref %}<option value="{{ r.tail }}">{{ r.sid }} {{ r.name }}</option>{% endfor %}</datalist>
+{% endblock %}
+{% block extra_js %}
+<script>
+async function submitSingle(){
+  const result=document.getElementById('result');
+  const body=new URLSearchParams({
+    csv_key:document.getElementById('csv_key').value,
+    score_type:document.getElementById('score_type').value,
+    tail:document.getElementById('tail').value,
+    score:document.getElementById('score').value,
+    comment:document.getElementById('comment').value,
+  });
+  const res=await fetch('/grade/single/submit',{method:'POST',body});
+  const j=await res.json();
+  if(!j.ok){result.innerHTML='<div class="error-box">'+j.error+'</div>';return;}
+  const r=j.result;
+  result.innerHTML='<div class="success-box">已更新：'+r.name+' ('+r.sid+') '+r.old+' → '+r.new+'</div>';
+}
+</script>
+{% endblock %}
