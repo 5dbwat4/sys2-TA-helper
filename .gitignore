@@ -11,3 +11,13 @@ node_modules/
 !.env.example
 test-puppeteer.js
 *.local
+
+dmc.xlsx
+sign.csv
+web/prisma/dev.db
+web/next-env.d.ts
+*.xlsx
+*.csv
+
+tsconfig.tsbuildinfo
+*.tsbuildinfo
