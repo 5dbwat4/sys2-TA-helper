@@ -1,19 +1,30 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import CameraBarcodeScanner from "@/components/CameraBarcodeScanner";
 
 export default function BoardsPage() {
   const [boards, setBoards] = useState<any[]>([]);
+  const [studentsRoster, setStudentsRoster] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<"ALL" | "BORROWED" | "AVAILABLE">("ALL");
 
-  // Assign Modal
+  // Assign / Edit Borrowers Modal
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedBoard, setSelectedBoard] = useState<any>(null);
-  const [studentId, setStudentId] = useState("");
   const [assignDbNo, setAssignDbNo] = useState("");
+  const [primaryStudent, setPrimaryStudent] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [coStudents, setCoStudents] = useState<any[]>([]);
+  const [coInput, setCoInput] = useState("");
+  const [assignScanning, setAssignScanning] = useState(false);
+
+  // Student suggestion dropdown state for primary student
+  const [showPrimarySuggestions, setShowPrimarySuggestions] = useState(false);
+  const [showCoSuggestions, setShowCoSuggestions] = useState(false);
+
+  // Loading & Message
   const [actionLoading, setActionLoading] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -24,9 +35,7 @@ export default function BoardsPage() {
   const [newDbNo, setNewDbNo] = useState("");
   const [newContactPhone, setNewContactPhone] = useState("");
   const [keepAdding, setKeepAdding] = useState(true);
-  const [scanningField, setScanningField] = useState<"assetNo" | "dbNo" | null>(null);
-
-  // Batch create
+  const [createScanningField, setCreateScanningField] = useState<"assetNo" | "dbNo" | null>(null);
   const [batchText, setBatchText] = useState("");
 
   const loadBoards = () => {
@@ -35,6 +44,9 @@ export default function BoardsPage() {
       .then(data => {
         if (data.success) {
           setBoards(data.boards);
+          if (data.students) {
+            setStudentsRoster(data.students);
+          }
         }
         setLoading(false);
       })
@@ -48,37 +60,101 @@ export default function BoardsPage() {
   const borrowedCount = useMemo(() => boards.filter(b => b.isBorrowed).length, [boards]);
   const availableCount = useMemo(() => boards.filter(b => !b.isBorrowed).length, [boards]);
 
-  // Open Assign Modal
+  // Open Assign Modal (works for new assignment OR editing existing co-borrowers/phone)
   const handleOpenAssign = (board?: any) => {
     setMessage("");
     if (board) {
       setSelectedBoard(board);
       setAssignDbNo(board.dbNo);
+      setContactPhone(board.contactPhone || "");
+      if (board.isBorrowed && board.currentStudent) {
+        setPrimaryStudent(board.currentStudent.studentId);
+        setCoStudents(board.coBorrowers || []);
+      } else {
+        setPrimaryStudent("");
+        setCoStudents([]);
+      }
     } else {
       setSelectedBoard(null);
       setAssignDbNo("");
+      setPrimaryStudent("");
+      setContactPhone("");
+      setCoStudents([]);
     }
-    setStudentId("");
+    setCoInput("");
+    setAssignScanning(false);
+    setShowPrimarySuggestions(false);
+    setShowCoSuggestions(false);
     setShowAssignModal(true);
   };
+
+  // Add co-borrower
+  const handleAddCoStudent = (st: any) => {
+    if (!st) return;
+    const exists = coStudents.some(c => c.studentId === st.studentId || c.name === st.name);
+    if (!exists) {
+      setCoStudents([...coStudents, st]);
+    }
+    setCoInput("");
+    setShowCoSuggestions(false);
+  };
+
+  // Remove co-borrower
+  const handleRemoveCoStudent = (studentId: string) => {
+    setCoStudents(coStudents.filter(c => c.studentId !== studentId));
+  };
+
+  // Suggestions for Primary Student
+  const primarySuggestions = useMemo(() => {
+    if (!primaryStudent.trim()) return [];
+    const q = primaryStudent.toLowerCase().trim();
+    return studentsRoster
+      .filter(s => s.studentId.toLowerCase().includes(q) || s.name.toLowerCase().includes(q))
+      .slice(0, 6);
+  }, [primaryStudent, studentsRoster]);
+
+  // Suggestions for Co-Borrower
+  const coSuggestions = useMemo(() => {
+    if (!coInput.trim()) return [];
+    const q = coInput.toLowerCase().trim();
+    return studentsRoster
+      .filter(s => s.studentId.toLowerCase().includes(q) || s.name.toLowerCase().includes(q))
+      .filter(s => s.studentId !== primaryStudent)
+      .slice(0, 6);
+  }, [coInput, studentsRoster, primaryStudent]);
 
   // Submit Assign
   const handleAssignSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!assignDbNo.trim()) {
+      setMessage("❌ 请输入或扫描开发板编号");
+      return;
+    }
+    if (!primaryStudent.trim()) {
+      setMessage("❌ 请输入主借用人学号或姓名");
+      return;
+    }
+
     setActionLoading(true);
     setMessage("");
+
     try {
       const resp = await fetch("/api/boards", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentId, dbNo: assignDbNo })
+        body: JSON.stringify({
+          dbNo: assignDbNo.trim(),
+          studentId: primaryStudent.trim(),
+          contactPhone: contactPhone.trim() || null,
+          coStudents: coStudents.map(c => c.studentId)
+        })
       });
       const data = await resp.json();
-      if (resp.ok) {
+      if (resp.ok && data.success) {
         setShowAssignModal(false);
         loadBoards();
       } else {
-        setMessage("❌ 登记失败: " + data.error);
+        setMessage("❌ 登记失败: " + (data.error || "未知错误"));
       }
     } catch (err: any) {
       setMessage("❌ 错误: " + err.message);
@@ -86,14 +162,14 @@ export default function BoardsPage() {
     setActionLoading(false);
   };
 
-  // Open Create Modal
+  // Open Create Board Modal
   const handleOpenCreate = () => {
     setMessage("");
     setNewAssetNo("");
     setNewDbNo("");
     setNewContactPhone("");
     setBatchText("");
-    setScanningField(null);
+    setCreateScanningField(null);
     setShowCreateModal(true);
   };
 
@@ -151,7 +227,6 @@ export default function BoardsPage() {
     }
 
     const parsedList = lines.map(line => {
-      // Support comma, tab, or space separation
       const parts = line.split(/[,\t\s]+/).filter(Boolean);
       return {
         assetNo: parts[0] || "",
@@ -234,14 +309,20 @@ export default function BoardsPage() {
   };
 
   // Camera scanned barcode handler for Add Board
-  const handleCameraScan = (code: string) => {
-    if (scanningField === "assetNo") {
+  const handleCreateCameraScan = (code: string) => {
+    if (createScanningField === "assetNo") {
       setNewAssetNo(code);
-      setScanningField(null);
-    } else if (scanningField === "dbNo") {
+      setCreateScanningField(null);
+    } else if (createScanningField === "dbNo") {
       setNewDbNo(code);
-      setScanningField(null);
+      setCreateScanningField(null);
     }
+  };
+
+  // Camera scanned barcode handler for Assign Board
+  const handleAssignCameraScan = (code: string) => {
+    setAssignDbNo(code);
+    setAssignScanning(false);
   };
 
   const filteredBoards = useMemo(() => {
@@ -249,8 +330,10 @@ export default function BoardsPage() {
       const matchesSearch =
         b.assetNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
         b.dbNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (b.contactPhone || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
         (b.currentStudent?.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (b.currentStudent?.studentId || "").toLowerCase().includes(searchQuery.toLowerCase());
+        (b.currentStudent?.studentId || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (b.teamMembers || []).some((m: string) => m.toLowerCase().includes(searchQuery.toLowerCase()));
 
       if (!matchesSearch) return false;
 
@@ -282,7 +365,7 @@ export default function BoardsPage() {
             </div>
           </div>
           <p className="text-sm text-zinc-400 mt-1">
-            追踪 {boards.length} 块 FPGA 开发板借还状态，支持扫码借还、新板入库登记与钉钉机器人动态推送。
+            追踪 {boards.length} 块 FPGA 开发板借还状态，支持登记借用（主借用人、多名共用组员与联系电话）、新板入库与连续扫码还板。
           </p>
         </div>
 
@@ -341,10 +424,10 @@ export default function BoardsPage() {
           </button>
         </div>
 
-        <div className="w-full sm:w-72">
+        <div className="w-full sm:w-80">
           <input
             type="text"
-            placeholder="搜索资产号、DB编号、学生姓名或学号..."
+            placeholder="搜索资产号、DB号、借用人、共用人或电话..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="w-full px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-teal-500"
@@ -365,21 +448,22 @@ export default function BoardsPage() {
             <table className="w-full text-left text-sm">
               <thead className="bg-white/5 border-b border-white/10 text-xs text-zinc-400 uppercase tracking-wider font-semibold">
                 <tr>
-                  <th className="px-6 py-3.5">资产编号</th>
-                  <th className="px-6 py-3.5">DB 编号</th>
-                  <th className="px-6 py-3.5">当前状态</th>
-                  <th className="px-6 py-3.5">当前借用人</th>
-                  <th className="px-6 py-3.5">借出时间</th>
-                  <th className="px-6 py-3.5">联系电话</th>
-                  <th className="px-6 py-3.5 text-right">操作</th>
+                  <th className="px-5 py-3.5">资产编号</th>
+                  <th className="px-5 py-3.5">DB 编号</th>
+                  <th className="px-5 py-3.5">当前状态</th>
+                  <th className="px-5 py-3.5">借用人 (主借用人)</th>
+                  <th className="px-5 py-3.5">组内共用人</th>
+                  <th className="px-5 py-3.5">借用联系电话</th>
+                  <th className="px-5 py-3.5">借出时间</th>
+                  <th className="px-5 py-3.5 text-right">操作</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
                 {filteredBoards.map(b => (
                   <tr key={b.id} className="hover:bg-white/5 transition">
-                    <td className="px-6 py-4 font-mono font-bold text-sky-400">{b.assetNo}</td>
-                    <td className="px-6 py-4 font-mono text-zinc-200">{b.dbNo}</td>
-                    <td className="px-6 py-4">
+                    <td className="px-5 py-4 font-mono font-bold text-sky-400">{b.assetNo}</td>
+                    <td className="px-5 py-4 font-mono text-zinc-200">{b.dbNo}</td>
+                    <td className="px-5 py-4">
                       {b.isBorrowed ? (
                         <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
                           借用中
@@ -390,40 +474,82 @@ export default function BoardsPage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-5 py-4">
                       {b.isBorrowed && b.currentStudent ? (
                         <div>
                           <span className="font-semibold text-zinc-100">{b.currentStudent.name}</span>
-                          <span className="text-xs text-zinc-400 font-mono ml-2">({b.currentStudent.studentId})</span>
+                          <span className="text-xs text-zinc-400 font-mono ml-1.5">({b.currentStudent.studentId})</span>
                         </div>
                       ) : (
                         <span className="text-zinc-500 text-xs">-</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-xs font-mono text-zinc-400">
+                    <td className="px-5 py-4">
+                      {b.isBorrowed && b.teamMembers && b.teamMembers.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {b.coBorrowers ? (
+                            b.coBorrowers.map((c: any) => (
+                              <span
+                                key={c.studentId}
+                                className="px-2 py-0.5 rounded-md text-[11px] bg-blue-500/15 text-blue-300 border border-blue-500/30 font-medium"
+                                title={`学号: ${c.studentId}`}
+                              >
+                                {c.name}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-xs text-zinc-300 font-medium">
+                              {b.teamMembers.join(", ")}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-zinc-500 text-xs">独立实验 (无共用)</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-4 font-mono text-xs">
+                      {b.contactPhone ? (
+                        <a
+                          href={`tel:${b.contactPhone}`}
+                          className="text-sky-400 hover:underline flex items-center gap-1 font-semibold"
+                        >
+                          <span>📞</span>
+                          <span>{b.contactPhone}</span>
+                        </a>
+                      ) : (
+                        <span className="text-zinc-500">-</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-4 text-xs font-mono text-zinc-400">
                       {b.isBorrowed && b.currentStudent?.assignedAt
                         ? new Date(b.currentStudent.assignedAt).toLocaleDateString()
                         : "-"}
                     </td>
-                    <td className="px-6 py-4 font-mono text-xs text-zinc-400">
-                      {b.contactPhone || "-"}
-                    </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-5 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         {b.isBorrowed ? (
-                          <button
-                            onClick={() => handleReturn(b.dbNo)}
-                            className="px-3.5 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500 hover:text-white text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition"
-                          >
-                            确认归还
-                          </button>
+                          <>
+                            <button
+                              onClick={() => handleReturn(b.dbNo)}
+                              className="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500 hover:text-white text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition"
+                            >
+                              确认归还
+                            </button>
+                            <button
+                              onClick={() => handleOpenAssign(b)}
+                              className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-zinc-300 text-xs font-medium border border-white/10 transition"
+                              title="修改借用人、添加组内共用人或更新联系电话"
+                            >
+                              修改共用/信息
+                            </button>
+                          </>
                         ) : (
                           <>
                             <button
                               onClick={() => handleOpenAssign(b)}
-                              className="px-3 py-1.5 rounded-lg bg-teal-500/20 hover:bg-teal-500 hover:text-white text-teal-300 border border-teal-500/30 text-xs font-semibold transition"
+                              className="px-3.5 py-1.5 rounded-lg bg-teal-500/20 hover:bg-teal-500 hover:text-white text-teal-300 border border-teal-500/30 text-xs font-semibold transition"
                             >
-                              借出登记
+                              登记借出
                             </button>
                             <button
                               onClick={() => handleDeleteBoard(b)}
@@ -456,7 +582,7 @@ export default function BoardsPage() {
               <button
                 onClick={() => {
                   setShowCreateModal(false);
-                  setScanningField(null);
+                  setCreateScanningField(null);
                 }}
                 className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition"
               >
@@ -471,7 +597,7 @@ export default function BoardsPage() {
                 onClick={() => {
                   setCreateTab("SINGLE");
                   setMessage("");
-                  setScanningField(null);
+                  setCreateScanningField(null);
                 }}
                 className={`flex-1 py-1.5 rounded-lg transition font-semibold text-center ${
                   createTab === "SINGLE"
@@ -486,7 +612,7 @@ export default function BoardsPage() {
                 onClick={() => {
                   setCreateTab("BATCH");
                   setMessage("");
-                  setScanningField(null);
+                  setCreateScanningField(null);
                 }}
                 className={`flex-1 py-1.5 rounded-lg transition font-semibold text-center ${
                   createTab === "BATCH"
@@ -514,24 +640,24 @@ export default function BoardsPage() {
             {createTab === "SINGLE" && (
               <form onSubmit={handleCreateSingle} className="space-y-4">
                 {/* Camera Scanner View if active */}
-                {scanningField && (
+                {createScanningField && (
                   <div className="p-3 rounded-xl bg-black/40 border border-emerald-500/40 space-y-2">
                     <div className="flex justify-between items-center text-xs">
                       <span className="text-emerald-300 font-semibold flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                        正在扫描【{scanningField === "assetNo" ? "资产编号" : "DB 编号"}】条形码...
+                        正在扫描【{createScanningField === "assetNo" ? "资产编号" : "DB 编号"}】条形码...
                       </span>
                       <button
                         type="button"
-                        onClick={() => setScanningField(null)}
+                        onClick={() => setCreateScanningField(null)}
                         className="text-zinc-400 hover:text-white"
                       >
                         关闭摄像头
                       </button>
                     </div>
                     <CameraBarcodeScanner
-                      onDetected={handleCameraScan}
-                      onClose={() => setScanningField(null)}
+                      onDetected={handleCreateCameraScan}
+                      onClose={() => setCreateScanningField(null)}
                     />
                   </div>
                 )}
@@ -543,7 +669,7 @@ export default function BoardsPage() {
                     </label>
                     <button
                       type="button"
-                      onClick={() => setScanningField(scanningField === "assetNo" ? null : "assetNo")}
+                      onClick={() => setCreateScanningField(createScanningField === "assetNo" ? null : "assetNo")}
                       className="text-xs text-sky-400 hover:underline flex items-center gap-1"
                     >
                       <span>📷</span> 扫码填入
@@ -566,7 +692,7 @@ export default function BoardsPage() {
                     </label>
                     <button
                       type="button"
-                      onClick={() => setScanningField(scanningField === "dbNo" ? null : "dbNo")}
+                      onClick={() => setCreateScanningField(createScanningField === "dbNo" ? null : "dbNo")}
                       className="text-xs text-teal-400 hover:underline flex items-center gap-1"
                     >
                       <span>📷</span> 扫码填入
@@ -613,7 +739,7 @@ export default function BoardsPage() {
                     type="button"
                     onClick={() => {
                       setShowCreateModal(false);
-                      setScanningField(null);
+                      setCreateScanningField(null);
                     }}
                     className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-sm transition"
                   >
@@ -684,16 +810,27 @@ export default function BoardsPage() {
         </div>
       )}
 
-      {/* Modal 2: Assign Modal */}
+      {/* Modal 2: Assign / Edit Borrowers & Co-borrowers Modal */}
       {showAssignModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="glass p-6 md:p-8 rounded-2xl max-w-md w-full space-y-6 border border-white/20">
+          <div className="glass p-6 md:p-8 rounded-2xl max-w-lg w-full space-y-5 border border-white/20 max-h-[92vh] overflow-y-auto">
             <div className="flex justify-between items-center pb-2 border-b border-white/10">
-              <h2 className="text-xl font-bold text-zinc-100">
-                {selectedBoard ? `借出开发板: ${selectedBoard.dbNo}` : "登记借出开发板"}
-              </h2>
+              <div>
+                <h2 className="text-xl font-bold text-zinc-100 flex items-center gap-2">
+                  <span>📋</span>
+                  <span>{selectedBoard ? (selectedBoard.isBorrowed ? "修改开发板借用与共用组员" : `借出登记: ${selectedBoard.dbNo}`) : "登记借出开发板"}</span>
+                </h2>
+                {selectedBoard && (
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    资产号: <span className="font-mono text-sky-400 font-bold">{selectedBoard.assetNo}</span> | DB编号: <span className="font-mono text-teal-400 font-bold">{selectedBoard.dbNo}</span>
+                  </p>
+                )}
+              </div>
               <button
-                onClick={() => setShowAssignModal(false)}
+                onClick={() => {
+                  setShowAssignModal(false);
+                  setAssignScanning(false);
+                }}
                 className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition"
               >
                 ✕
@@ -701,37 +838,232 @@ export default function BoardsPage() {
             </div>
 
             {message && (
-              <div className="p-3 rounded-xl bg-red-500/20 text-red-300 text-sm">
+              <div className="p-3 rounded-xl bg-red-500/20 text-red-300 text-sm font-medium border border-red-500/30">
                 {message}
               </div>
             )}
 
             <form onSubmit={handleAssignSubmit} className="space-y-4">
+              {/* Camera Scanner View for Assigning Board */}
+              {assignScanning && (
+                <div className="p-3 rounded-xl bg-black/40 border border-emerald-500/40 space-y-2">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-emerald-300 font-semibold flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                      正在扫描开发板条形码...
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setAssignScanning(false)}
+                      className="text-zinc-400 hover:text-white"
+                    >
+                      关闭摄像头
+                    </button>
+                  </div>
+                  <CameraBarcodeScanner
+                    onDetected={handleAssignCameraScan}
+                    onClose={() => setAssignScanning(false)}
+                  />
+                </div>
+              )}
+
+              {/* Board DB / Asset No input (only if not preselected or allow changing) */}
               <div>
-                <label className="block text-xs font-medium text-zinc-300 mb-1">开发板 DB编号 或 资产号</label>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-xs font-semibold text-zinc-300">
+                    开发板 DB 编号 或 资产号 <span className="text-red-400">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setAssignScanning(!assignScanning)}
+                    className="text-xs text-sky-400 hover:underline flex items-center gap-1"
+                  >
+                    <span>📷</span> {assignScanning ? "关闭扫码" : "扫码填入"}
+                  </button>
+                </div>
                 <input
                   type="text"
                   value={assignDbNo}
                   onChange={e => setAssignDbNo(e.target.value)}
                   placeholder="如: DBD039A 或 24031188"
-                  className="w-full px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-mono focus:outline-none focus:border-teal-500"
+                  className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm font-mono focus:outline-none focus:border-teal-500"
                   required
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-zinc-300 mb-1">学生学号 (Student ID)</label>
+              {/* Primary Borrower Input with Live Suggestions */}
+              <div className="relative">
+                <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                  主借用人学号 / 姓名 <span className="text-red-400">*</span>
+                </label>
                 <input
                   type="text"
-                  value={studentId}
-                  onChange={e => setStudentId(e.target.value)}
-                  placeholder="如: 3250105895"
-                  className="w-full px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-mono focus:outline-none focus:border-teal-500"
+                  value={primaryStudent}
+                  onChange={e => {
+                    setPrimaryStudent(e.target.value);
+                    setShowPrimarySuggestions(true);
+                  }}
+                  onFocus={() => setShowPrimarySuggestions(true)}
+                  placeholder="输入学号或姓名搜索 (如: 325010xxxx 或 张三)"
+                  className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm font-mono focus:outline-none focus:border-teal-500"
                   required
                 />
+
+                {/* Suggestions Dropdown */}
+                {showPrimarySuggestions && primarySuggestions.length > 0 && (
+                  <div className="absolute z-20 top-full mt-1 inset-x-0 glass rounded-xl border border-white/20 p-1.5 shadow-xl max-h-48 overflow-y-auto space-y-1">
+                    {primarySuggestions.map(st => (
+                      <div
+                        key={st.studentId}
+                        onClick={() => {
+                          setPrimaryStudent(st.studentId);
+                          setShowPrimarySuggestions(false);
+                        }}
+                        className="px-3 py-2 rounded-lg text-xs hover:bg-teal-500/20 hover:text-teal-300 cursor-pointer flex justify-between items-center transition"
+                      >
+                        <span className="font-bold text-zinc-100">{st.name}</span>
+                        <span className="font-mono text-zinc-400">{st.studentId}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              <div className="flex justify-end gap-3 pt-2">
+              {/* Contact Phone Input */}
+              <div>
+                <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                  借用人联系电话 (选填，用于还板催还通知)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-2.5 text-zinc-400 text-sm">📞</span>
+                  <input
+                    type="text"
+                    value={contactPhone}
+                    onChange={e => setContactPhone(e.target.value)}
+                    placeholder="如: 13800138000"
+                    className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm font-mono focus:outline-none focus:border-teal-500"
+                  />
+                </div>
+              </div>
+
+              {/* Co-Borrowers / Team Members Section */}
+              <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-3">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-xs font-bold text-zinc-200 flex items-center gap-1.5">
+                      <span>👥</span>
+                      <span>组内共用人 (Team Members)</span>
+                    </h3>
+                    <p className="text-[11px] text-zinc-400 mt-0.5">
+                      同组共用一块开发板的同学，验收与系统看板将同步关联。
+                    </p>
+                  </div>
+                  <span className="text-[11px] font-mono font-semibold text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded-md border border-teal-500/20">
+                    已选 {coStudents.length} 人
+                  </span>
+                </div>
+
+                {/* Selected Co-Students Badges */}
+                {coStudents.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {coStudents.map((st) => (
+                      <div
+                        key={st.studentId}
+                        className="px-2.5 py-1 rounded-lg bg-teal-500/15 border border-teal-500/30 text-teal-300 text-xs flex items-center gap-1.5 font-medium"
+                      >
+                        <span>{st.name || st.studentId}</span>
+                        <span className="text-[10px] opacity-70 font-mono">({st.studentId})</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveCoStudent(st.studentId)}
+                          className="text-xs opacity-70 hover:opacity-100 hover:text-red-400 transition ml-0.5"
+                          title="移除该共用人"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-zinc-500 italic py-1">
+                    暂无组内共用人（独立实验一人一块板时可留空）。
+                  </p>
+                )}
+
+                {/* Add Co-Student Search Bar */}
+                <div className="relative pt-1">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={coInput}
+                      onChange={e => {
+                        setCoInput(e.target.value);
+                        setShowCoSuggestions(true);
+                      }}
+                      onFocus={() => setShowCoSuggestions(true)}
+                      onKeyDown={e => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          if (coSuggestions.length > 0) {
+                            handleAddCoStudent(coSuggestions[0]);
+                          } else if (coInput.trim()) {
+                            // Find student in roster
+                            const found = studentsRoster.find(
+                              s => s.studentId === coInput.trim() || s.name === coInput.trim()
+                            );
+                            if (found) {
+                              handleAddCoStudent(found);
+                            } else {
+                              handleAddCoStudent({ studentId: coInput.trim(), name: coInput.trim() });
+                            }
+                          }
+                        }
+                      }}
+                      placeholder="输入共用同学学号或姓名，回车添加..."
+                      className="flex-1 px-3 py-1.5 rounded-lg bg-black/30 border border-white/10 text-xs font-mono focus:outline-none focus:border-teal-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (coSuggestions.length > 0) {
+                          handleAddCoStudent(coSuggestions[0]);
+                        } else if (coInput.trim()) {
+                          const found = studentsRoster.find(
+                            s => s.studentId === coInput.trim() || s.name === coInput.trim()
+                          );
+                          if (found) {
+                            handleAddCoStudent(found);
+                          } else {
+                            handleAddCoStudent({ studentId: coInput.trim(), name: coInput.trim() });
+                          }
+                        }
+                      }}
+                      disabled={!coInput.trim()}
+                      className="px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 disabled:opacity-40 text-white text-xs font-semibold transition"
+                    >
+                      ＋ 添加组员
+                    </button>
+                  </div>
+
+                  {/* Co-student suggestions dropdown */}
+                  {showCoSuggestions && coSuggestions.length > 0 && (
+                    <div className="absolute z-20 top-full mt-1 inset-x-0 glass rounded-xl border border-white/20 p-1.5 shadow-xl max-h-40 overflow-y-auto space-y-1">
+                      {coSuggestions.map(st => (
+                        <div
+                          key={st.studentId}
+                          onClick={() => handleAddCoStudent(st)}
+                          className="px-3 py-1.5 rounded-lg text-xs hover:bg-teal-500/20 hover:text-teal-300 cursor-pointer flex justify-between items-center transition"
+                        >
+                          <span className="font-bold text-zinc-100">{st.name}</span>
+                          <span className="font-mono text-zinc-400">{st.studentId}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2 border-t border-white/10">
                 <button
                   type="button"
                   onClick={() => setShowAssignModal(false)}
@@ -742,9 +1074,9 @@ export default function BoardsPage() {
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="px-5 py-2 rounded-xl bg-teal-500 hover:bg-teal-600 text-white text-sm font-semibold shadow transition disabled:opacity-50"
+                  className="px-6 py-2 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white text-sm font-semibold shadow transition disabled:opacity-50"
                 >
-                  {actionLoading ? "登记中..." : "确认借出"}
+                  {actionLoading ? "保存中..." : (selectedBoard?.isBorrowed ? "保存借用与共用人信息" : "确认借出登记 (Assign)")}
                 </button>
               </div>
             </form>

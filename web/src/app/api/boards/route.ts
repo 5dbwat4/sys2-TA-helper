@@ -24,24 +24,44 @@ export async function GET() {
       }
     });
 
+    // Also fetch all students for instant fast auto-complete on frontend
+    const allStudents = await prisma.user.findMany({
+      where: { role: 'STUDENT' },
+      select: { id: true, studentId: true, name: true },
+      orderBy: { studentId: 'asc' }
+    });
+
     const data = boards.map(b => {
-      const active = b.assignments.find(a => !a.isReturned) || b.assignments[0] || null;
+      const activeAssignments = b.assignments.filter(a => !a.isReturned);
+      const isBorrowed = activeAssignments.length > 0;
+      const primary = activeAssignments[0] || b.assignments[0] || null;
+      const coBorrowers = activeAssignments.slice(1).map(a => ({
+        studentId: a.student.studentId,
+        name: a.student.name
+      }));
+
       return {
         id: b.id,
         assetNo: b.assetNo,
         dbNo: b.dbNo,
         contactPhone: b.contactPhone,
-        isBorrowed: active ? !active.isReturned : false,
-        currentStudent: active ? {
-          studentId: active.student.studentId,
-          name: active.student.name,
-          assignedAt: active.assignedAt,
-          isReturned: active.isReturned
-        } : null
+        isBorrowed,
+        currentStudent: primary ? {
+          studentId: primary.student.studentId,
+          name: primary.student.name,
+          assignedAt: primary.assignedAt,
+          isReturned: primary.isReturned
+        } : null,
+        coBorrowers,
+        teamMembers: coBorrowers.map(c => c.name),
+        allBorrowers: activeAssignments.map(a => ({
+          studentId: a.student.studentId,
+          name: a.student.name
+        }))
       };
     });
 
-    return NextResponse.json({ success: true, boards: data });
+    return NextResponse.json({ success: true, boards: data, students: allStudents });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
   }
@@ -135,10 +155,10 @@ export async function POST(req: Request) {
       });
     }
 
-    // 3. Assign Board to Student (default)
-    const { studentId, dbNo } = body;
+    // 3. Assign Board to Student(s) (supports Primary Borrower, Co-borrowers, and Contact Phone)
+    const { studentId, dbNo, contactPhone, coStudents } = body;
     if (!studentId || !dbNo) {
-      return NextResponse.json({ error: 'Missing studentId or dbNo' }, { status: 400 });
+      return NextResponse.json({ error: '开发板编号与主借用人学号为必填项' }, { status: 400 });
     }
 
     const board = await prisma.board.findFirst({
@@ -150,47 +170,120 @@ export async function POST(req: Request) {
       }
     });
     if (!board) {
-      return NextResponse.json({ error: 'Board not found' }, { status: 404 });
+      return NextResponse.json({ error: '开发板未找到，请检查 DB 编号或资产号' }, { status: 404 });
     }
 
-    const student = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { studentId: studentId.trim() },
-          { id: studentId.trim() }
-        ]
+    // Update board contactPhone if provided
+    if (contactPhone !== undefined) {
+      await prisma.board.update({
+        where: { id: board.id },
+        data: { contactPhone: contactPhone?.trim() || null }
+      });
+    }
+
+    // Gather all students: primary + co-borrowers
+    const allInputs: string[] = [studentId.trim()];
+    if (Array.isArray(coStudents)) {
+      for (const cs of coStudents) {
+        if (typeof cs === 'string' && cs.trim()) {
+          allInputs.push(cs.trim());
+        } else if (cs && typeof cs === 'object' && cs.studentId) {
+          allInputs.push(cs.studentId.trim());
+        }
       }
-    });
-    if (!student) {
-      return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+    } else if (typeof coStudents === 'string' && coStudents.trim()) {
+      const splitItems = coStudents.split(/[,;\s\n\t]+/).map(s => s.trim()).filter(Boolean);
+      allInputs.push(...splitItems);
     }
 
-    // Check if board is already assigned to someone else
-    const existingActiveAssignment = await prisma.boardAssignment.findFirst({
-      where: { boardId: board.id, isReturned: false }
-    });
+    // Resolve students from database (by studentId or name)
+    const resolvedStudents: any[] = [];
+    const missingStudents: string[] = [];
 
-    if (existingActiveAssignment) {
-      return NextResponse.json({ error: 'Board is already currently assigned' }, { status: 400 });
+    const uniqueInputs = Array.from(new Set(allInputs));
+    for (const input of uniqueInputs) {
+      const student = await prisma.user.findFirst({
+        where: {
+          role: 'STUDENT',
+          OR: [
+            { studentId: input },
+            { name: input },
+            { id: input }
+          ]
+        }
+      });
+      if (student) {
+        // avoid duplicate student in array
+        if (!resolvedStudents.some(s => s.id === student.id)) {
+          resolvedStudents.push(student);
+        }
+      } else {
+        missingStudents.push(input);
+      }
     }
 
-    const assignment = await prisma.boardAssignment.create({
+    if (missingStudents.length > 0) {
+      return NextResponse.json({
+        error: `以下学生未在学生库中匹配到: [${missingStudents.join(', ')}]，请确认学号或姓名是否正确`
+      }, { status: 400 });
+    }
+
+    // Mark previous active assignments on this board as returned
+    await prisma.boardAssignment.updateMany({
+      where: { boardId: board.id, isReturned: false },
       data: {
-        boardId: board.id,
-        studentId: student.id,
-        isReturned: false
+        isReturned: true,
+        returnedAt: new Date()
       }
     });
 
+    // Create / activate assignments for all resolved students
+    const assignments: any[] = [];
+    const now = new Date();
+    for (const st of resolvedStudents) {
+      const a = await prisma.boardAssignment.upsert({
+        where: {
+          boardId_studentId: {
+            boardId: board.id,
+            studentId: st.id
+          }
+        },
+        update: {
+          isReturned: false,
+          assignedAt: now,
+          returnedAt: null
+        },
+        create: {
+          boardId: board.id,
+          studentId: st.id,
+          isReturned: false,
+          assignedAt: now
+        }
+      });
+      assignments.push(a);
+    }
+
+    // DingTalk notification
+    const studentNames = resolvedStudents.map(s => `${s.name} (${s.studentId})`).join(', ');
+    const phoneInfo = contactPhone || board.contactPhone || '未登记';
     if (DINGTALK_TOKEN && DINGTALK_SECRET) {
       try {
-        await sendDingTalkMessage(DINGTALK_TOKEN, DINGTALK_SECRET, `[Board Assignment] Board ${board.dbNo} (${board.assetNo}) has been assigned to student ${student.studentId} (${student.name}).`);
+        await sendDingTalkMessage(
+          DINGTALK_TOKEN,
+          DINGTALK_SECRET,
+          `[开发板借出登记] 板号 ${board.dbNo} (资产号: ${board.assetNo}) 已借出给: ${studentNames}；联系电话: ${phoneInfo}`
+        );
       } catch (e) {
         console.error('DingTalk failed', e);
       }
     }
 
-    return NextResponse.json({ success: true, assignment });
+    return NextResponse.json({
+      success: true,
+      board: { ...board, contactPhone: contactPhone || board.contactPhone },
+      students: resolvedStudents,
+      assignments
+    });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
   }
