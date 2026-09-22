@@ -164,7 +164,9 @@ export const GET = withAuth(async () => {
       return (a.experimentNumber || "").localeCompare(b.experimentNumber || "");
     }
 
-    return (a.name || "").localeCompare(b.name || "");
+    const nameA = a.itemType === "QUIZ" ? a.name : a.experimentName || "";
+    const nameB = b.itemType === "QUIZ" ? b.name : b.experimentName || "";
+    return nameA.localeCompare(nameB);
   });
 
   const totalEarnedCourseScore =

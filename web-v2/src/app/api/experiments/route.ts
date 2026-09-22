@@ -40,7 +40,7 @@ export const POST = withAuth(async (request: Request) => {
       acceptanceRatio: body.acceptanceRatio,
       reportRatio: body.reportRatio,
       codeRatio: body.codeRatio,
-      type: body.type,
+      type: body.type === "INTEGRATED" ? "BOTH" : body.type,
       isPublished: body.isPublished ?? false,
       questions:
         body.questions.length > 0

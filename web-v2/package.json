@@ -18,6 +18,8 @@
     "@heroui/styles": "^3.2.6",
     "@iconify/react": "^5.2.0",
     "@prisma/client": "^5.20.0",
+    "@react-aria/ssr": "^3.9.7",
+    "@react-aria/utils": "^3.27.0",
     "@simplewebauthn/browser": "^14.0.0",
     "@simplewebauthn/server": "^14.0.2",
     "axios": "^1.7.0",

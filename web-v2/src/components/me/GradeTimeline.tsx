@@ -36,7 +36,7 @@ function QuizTimelineItem({ item, index }: { item: Extract<TimelineItem, { itemT
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <Chip size="sm" color="secondary" variant="flat" className="text-[11px] font-bold">
+              <Chip size="sm" color="accent" variant="soft" className="text-[11px] font-bold">
                 随堂小测
               </Chip>
               <span className="tabular text-xs text-fg-subtle">
@@ -107,7 +107,7 @@ function ExperimentTimelineItem({
                 <span className="tabular text-xs font-bold uppercase tracking-widest text-fg-subtle">
                   Lab {item.experimentNumber}
                 </span>
-                <Chip size="sm" variant="flat" className="text-[11px] text-fg-subtle">
+                <Chip size="sm" variant="soft" className="text-[11px] text-fg-subtle">
                   未发布
                 </Chip>
                 <Chip size="sm" variant="soft" className="text-[11px] text-fg-subtle">
