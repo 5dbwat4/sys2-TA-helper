@@ -3,8 +3,28 @@ const xlsx = require('xlsx');
 const fs = require('fs');
 const { parse } = require('csv-parse/sync');
 const path = require('path');
+const { pinyin } = require('pinyin-pro');
 
 const prisma = new PrismaClient();
+
+function computePinyin(name) {
+  const trimmed = (name ?? '').trim();
+  if (!trimmed) return { pinyin: null, pinyinInitials: null };
+  const full = pinyin(trimmed, { toneType: 'none', type: 'array', nonZh: 'consecutive' })
+    .join('')
+    .toLowerCase()
+    .replace(/[^a-z]/g, '');
+  const initials = pinyin(trimmed, {
+    pattern: 'first',
+    toneType: 'none',
+    type: 'array',
+    nonZh: 'consecutive',
+  })
+    .join('')
+    .toLowerCase()
+    .replace(/[^a-z]/g, '');
+  return { pinyin: full || null, pinyinInitials: initials || null };
+}
 
 const TA_MAPPING = [
   { studentId: '3240102049', name: '5dbwat4' },
@@ -59,11 +79,12 @@ async function main() {
       if (studentId && name && /^\d+$/.test(studentId)) {
         await prisma.user.upsert({
           where: { studentId },
-          update: { name },
+          update: { name, ...computePinyin(name) },
           create: {
             studentId,
             name,
-            role: 'STUDENT'
+            role: 'STUDENT',
+            ...computePinyin(name)
           }
         });
       }

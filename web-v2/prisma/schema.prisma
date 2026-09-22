@@ -22,6 +22,10 @@ model User {
   zjuamPassword String? // Encrypted
 
   hasCheckpoint Boolean  @default(false)
+
+  // Precomputed pinyin (lowercase, tone-less) for fast lookup
+  pinyin         String? // full pinyin, e.g. "wangruochen"
+  pinyinInitials String? // initials only, e.g. "wrc"
   
   passkeys  Passkey[]
   boardAssignments BoardAssignment[]

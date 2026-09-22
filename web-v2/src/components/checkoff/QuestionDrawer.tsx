@@ -37,7 +37,15 @@ const MARK_META: Record<Mark, { icon: string; className: string; activeClass: st
   },
 };
 
-export function QuestionDrawer({ onNext }: { onNext: () => void }) {
+export function QuestionDrawer({
+  onNext,
+  questionIndex,
+  onQuestionIndex,
+}: {
+  onNext: () => void;
+  questionIndex: number;
+  onQuestionIndex: (i: number) => void;
+}) {
   const t = useTranslations("checkoff");
   const {
     experiment,
@@ -155,8 +163,46 @@ export function QuestionDrawer({ onNext }: { onNext: () => void }) {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="mt-5 flex justify-end"
+            className="mt-5 flex items-center justify-between"
           >
+            {/* question pager (drives slave card) */}
+            <div className="flex items-center gap-1.5">
+              <Button
+                isIconOnly
+                size="sm"
+                variant="ghost"
+                isDisabled={questionIndex === 0}
+                onPress={() => onQuestionIndex(Math.max(0, questionIndex - 1))}
+                aria-label="Previous question"
+              >
+                <Icon icon="lucide:chevron-left" width={15} />
+              </Button>
+              <div className="flex gap-1.5">
+                {drawnQuestions.map((q, i) => (
+                  <button
+                    key={q.id}
+                    type="button"
+                    onClick={() => onQuestionIndex(i)}
+                    className={
+                      "h-2 rounded-full transition-all duration-300 " +
+                      (i === questionIndex ? "w-6 bg-brand-500" : "w-2 bg-line hover:bg-fg-subtle")
+                    }
+                    aria-label={`Question ${i + 1}`}
+                  />
+                ))}
+              </div>
+              <Button
+                isIconOnly
+                size="sm"
+                variant="ghost"
+                isDisabled={questionIndex >= drawnQuestions.length - 1}
+                onPress={() => onQuestionIndex(Math.min(drawnQuestions.length - 1, questionIndex + 1))}
+                aria-label="Next question"
+              >
+                <Icon icon="lucide:chevron-right" width={15} />
+              </Button>
+            </div>
+
             <Button size="lg" onPress={onNext} className="bg-gradient-to-r from-brand-600 to-brand-700 shadow-lg shadow-brand-600/25">
               {t("stepScore")}
               <Icon icon="lucide:arrow-right" width={16} />

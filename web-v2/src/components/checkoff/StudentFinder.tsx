@@ -11,9 +11,13 @@ import type { Experiment, MatchedStudent } from "./checkoff-store";
 export function StudentFinder({
   experiment,
   onSelect,
+  externalQuery,
+  onExternalQueryConsumed,
 }: {
   experiment: Experiment;
   onSelect: (s: MatchedStudent) => void;
+  externalQuery?: string | null;
+  onExternalQueryConsumed?: () => void;
 }) {
   const t = useTranslations("checkoff");
   const [q, setQ] = useState("");
@@ -26,6 +30,16 @@ export function StudentFinder({
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  // Slave device submitted an id/name → run the search automatically
+  useEffect(() => {
+    if (externalQuery) {
+      setQ(externalQuery);
+      search(externalQuery);
+      onExternalQueryConsumed?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalQuery]);
 
   const search = async (query: string) => {
     if (!query.trim()) {

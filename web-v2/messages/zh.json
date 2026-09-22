@@ -146,7 +146,12 @@
     "saved": "已保存",
     "removed": "已移除",
     "confirmRemove": "确认移除？",
-    "primaryNote": "浙大统一身份认证 / Token 始终可作为主登录方式，以下均为可选的便捷方式。"
+    "primaryNote": "浙大统一身份认证 / Token 始终可作为主登录方式，以下均为可选的便捷方式。",
+    "prefs": "偏好",
+    "checkoffMode": "现场验收设备模式",
+    "checkoffModeDesc": "单设备：全部操作在本机完成；多设备：生成 slave 码，用另一台设备向学生展示验收界面。",
+    "modeSingle": "单设备",
+    "modeMulti": "多设备"
   },
   "console": {
     "title": "工作台",
@@ -195,7 +200,23 @@
     "saveAndNext": "保存并验收下一位",
     "saved": "已保存",
     "noExperiment": "请先创建实验",
-    "allChecked": "该实验已全部验收完毕"
+    "allChecked": "该实验已全部验收完毕",
+    "multi": {
+      "slaveCode": "Slave 码",
+      "slaveUrl": "在另一台设备打开",
+      "orCodeHint": "或访问 /checkin 输入上方 6 位码",
+      "copyLink": "复制链接",
+      "copied": "已复制",
+      "studentSubmitted": "学生提交",
+      "useThis": "定位此学生",
+      "idleHere": "此处可验收 Lab"
+    }
+  },
+  "checkin": {
+    "joinTitle": "输入 Slave 码",
+    "joinNotFound": "会话不存在或已过期",
+    "joinPlaceholder": "6 位数字码",
+    "join": "加入"
   },
   "boards": {
     "title": "开发板管理",
@@ -268,5 +289,11 @@
     "checkpoint": "Checkpoint",
     "noBoard": "当前没有借用开发板",
     "noGrades": "暂无成绩记录"
+  },
+  "checkin": {
+    "joinTitle": "输入验收码",
+    "joinHint": "请输入助教端显示的 6 位数字验收码",
+    "joinSubmit": "进入验收",
+    "joinNotFound": "未找到该会话，请确认验收码是否正确"
   }
 }

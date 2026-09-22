@@ -5,6 +5,8 @@ import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "motion/react";
 import { useSearchParams } from "next/navigation";
 import { Spinner } from "@heroui/react";
+import { useRouter } from "@/i18n/navigation";
+import { useCheckoffModeLoaded } from "@/lib/use-checkoff-mode";
 import {
   CheckoffContext,
   type CheckoffState,
@@ -35,6 +37,13 @@ export default function CheckoffPage() {
 function CheckoffWizard() {
   const t = useTranslations("checkoff");
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const [mode, modeLoaded] = useCheckoffModeLoaded();
+
+  // Multi-device mode lives on its own page
+  useEffect(() => {
+    if (modeLoaded && mode === "multi") router.replace("/console/checkoff/multi");
+  }, [mode, modeLoaded, router]);
 
   const [step, setStep] = useState<Step>(0);
   const [experiment, setExperiment] = useState<Experiment | null>(null);
@@ -42,6 +51,7 @@ function CheckoffWizard() {
   const [drawnQuestions, setDrawnQuestions] = useState<Experiment["questions"]>([]);
   const [questionMarks, setQuestionMarks] = useState<CheckoffState["questionMarks"]>({});
   const [experiments, setExperiments] = useState<Experiment[] | null>(null);
+  const [questionIndex, setQuestionIndex] = useState(0);
 
   useEffect(() => {
     fetch("/api/checkoff")
@@ -50,10 +60,7 @@ function CheckoffWizard() {
         const list: Experiment[] = data.experiments ?? [];
         setExperiments(list);
         const wanted = searchParams.get("experimentId");
-        const preselect =
-          list.find((e) => e.id === wanted) ??
-          list.find((e) => e.isPublished) ??
-          null;
+        const preselect = list.find((e) => e.id === wanted) ?? list.find((e) => e.isPublished) ?? null;
         if (preselect) {
           setExperiment(preselect);
           setStep(1);
@@ -66,6 +73,7 @@ function CheckoffWizard() {
     setStudent(null);
     setDrawnQuestions([]);
     setQuestionMarks({});
+    setQuestionIndex(0);
     setStep(1);
   }, []);
 
@@ -74,6 +82,7 @@ function CheckoffWizard() {
       setStudent(s);
       setDrawnQuestions([]);
       setQuestionMarks({});
+      setQuestionIndex(0);
       if (s) setStep(experiment && experiment.questions.length > 0 ? 2 : 3);
       else setStep(1);
     },
@@ -88,6 +97,7 @@ function CheckoffWizard() {
     setStudent(null);
     setDrawnQuestions([]);
     setQuestionMarks({});
+    setQuestionIndex(0);
     setStep(1);
   }, []);
 
@@ -150,7 +160,13 @@ function CheckoffWizard() {
               {step === 1 && experiment && (
                 <StudentFinder experiment={experiment} onSelect={selectStudent} />
               )}
-              {step === 2 && <QuestionDrawer onNext={() => setStep(3)} />}
+              {step === 2 && (
+                <QuestionDrawer
+                  onNext={() => setStep(3)}
+                  questionIndex={questionIndex}
+                  onQuestionIndex={setQuestionIndex}
+                />
+              )}
               {step === 3 && <ScoreForm onSaved={reset} />}
             </motion.div>
           </AnimatePresence>

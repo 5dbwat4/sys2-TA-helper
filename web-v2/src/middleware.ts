@@ -4,7 +4,7 @@ import { routing } from "./i18n/routing";
 
 const intlMiddleware = createMiddleware(routing);
 
-const PUBLIC_PATHS = ["/login"];
+const PUBLIC_PATHS = ["/login", "/checkin"];
 /** Paths accessible without a full session (setup requires its own ticket, checked client-side). */
 const TICKET_PATHS = ["/setup"];
 const STUDENT_ALLOWED = ["/me"];
@@ -44,6 +44,12 @@ export default function middleware(request: NextRequest) {
         : "/console"
       : "/login";
     return NextResponse.redirect(url);
+  }
+
+  // Checkoff slave pages are self-protected (session token / 6-digit code),
+  // so they must stay reachable regardless of login state.
+  if (pathnameWithoutLocale === "/checkin" || pathnameWithoutLocale.startsWith("/checkin/")) {
+    return intlMiddleware(request);
   }
 
   const isPublic = PUBLIC_PATHS.some(

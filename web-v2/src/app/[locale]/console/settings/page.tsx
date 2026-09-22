@@ -5,6 +5,7 @@ import { motion } from "motion/react";
 import { ProfileSection } from "@/components/settings/ProfileSection";
 import { SecuritySection } from "@/components/settings/SecuritySection";
 import { ZjuSection } from "@/components/settings/ZjuSection";
+import { PrefsSection } from "@/components/settings/PrefsSection";
 
 export default function SettingsPage() {
   const t = useTranslations("settings");
@@ -24,6 +25,7 @@ export default function SettingsPage() {
         <ProfileSection />
         <SecuritySection />
         <ZjuSection />
+        <PrefsSection />
       </div>
     </div>
   );

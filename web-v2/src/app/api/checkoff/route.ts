@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireStaff, withAuth } from "@/lib/auth";
-import { getPinyinInitials } from "@/lib/pinyin";
 
 export const GET = withAuth(async (request: Request) => {
   await requireStaff();
@@ -55,15 +54,21 @@ export const GET = withAuth(async (request: Request) => {
     });
 
     for (const st of allStudents) {
-      const pinyin = getPinyinInitials(st.name);
+      const pinyin = st.pinyin ?? "";
+      const pinyinInitials = st.pinyinInitials ?? "";
       const active = st.boardAssignments[0];
       const board = active?.board;
+
+      const pinyinHit =
+        (pinyin.length > 0 && (pinyin.includes(qClean) || pinyin.includes(qLower))) ||
+        (pinyinInitials.length > 0 &&
+          (pinyinInitials.includes(qClean) || pinyinInitials.includes(qLower)));
 
       let matches =
         st.studentId.toLowerCase().includes(qLower) ||
         st.studentId.endsWith(q) ||
         st.name.includes(q) ||
-        Boolean(pinyin && (pinyin.includes(qLower) || pinyin.startsWith(qLower)));
+        pinyinHit;
 
       if (!matches) {
         for (const ba of st.boardAssignments) {
@@ -91,7 +96,7 @@ export const GET = withAuth(async (request: Request) => {
         id: st.id,
         studentId: st.studentId,
         name: st.name,
-        pinyin,
+        pinyin: st.pinyinInitials,
         hasCheckpoint: st.hasCheckpoint,
         board: board
           ? {

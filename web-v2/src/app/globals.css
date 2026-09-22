@@ -87,8 +87,8 @@
   --color-amber-950: var(--amber-950);
 
   --color-bg: var(--bg);
-  --color-bg-elevated: var(--bg-elevated);
-  --color-bg-sunken: var(--bg-sunken);
+  --color-elevated: var(--bg-elevated);
+  --color-sunken: var(--bg-sunken);
   --color-fg: var(--fg);
   --color-fg-muted: var(--fg-muted);
   --color-fg-subtle: var(--fg-subtle);
@@ -249,6 +249,41 @@ body {
   );
   background-size: 200% 100%;
   animation: var(--animate-shimmer);
+}
+
+/* ---------------------------------- */
+/* Checkin (slave) diagonal background */
+/* ---------------------------------- */
+.checkin-bg {
+  background-color: #ffffff;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 9px,
+    rgba(19, 26, 44, 0.08) 9px,
+    rgba(19, 26, 44, 0.08) 10px
+  );
+}
+
+.dark .checkin-bg {
+  background-color: var(--bg-sunken);
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 9px,
+    rgba(232, 236, 246, 0.05) 9px,
+    rgba(232, 236, 246, 0.05) 10px
+  );
+}
+
+/* Card border matches the diagonal stripe color exactly */
+.checkin-card {
+  border-color: rgba(19, 26, 44, 0.08);
+  background-color: var(--bg-elevated);
+}
+
+.dark .checkin-card {
+  border-color: rgba(232, 236, 246, 0.05);
 }
 
 /* ---------------------------------- */
