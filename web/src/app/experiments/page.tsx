@@ -177,12 +177,22 @@ export default function ExperimentsPage() {
                     >
                       {exp.isPublished ? '撤回为草稿' : '发布实验'}
                     </button>
-                    <a
-                      href={`/assignments?experimentId=${exp.id}`}
-                      className="px-4 py-2 bg-amber-500/20 border border-amber-500/40 text-amber-300 hover:bg-amber-500 hover:text-white rounded-xl text-sm font-medium transition text-center"
-                    >
-                      前往批改 (Grade)
-                    </a>
+                    {role === "TA" && (
+                      <a
+                        href={`/assignments?experimentId=${exp.id}`}
+                        className="px-4 py-2 bg-amber-500/20 border border-amber-500/40 text-amber-300 hover:bg-amber-500 hover:text-white rounded-xl text-sm font-medium transition text-center"
+                      >
+                        前往批改 (Grade)
+                      </a>
+                    )}
+                    {role === "TEACHER" && (
+                      <a
+                        href={`/assignments?experimentId=${exp.id}`}
+                        className="px-4 py-2 bg-white/5 border border-white/10 text-zinc-300 hover:bg-white/10 rounded-xl text-sm font-medium transition text-center"
+                      >
+                        查看作业
+                      </a>
+                    )}
                   </>
                 )}
               </div>

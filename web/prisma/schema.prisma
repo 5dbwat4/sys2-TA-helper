@@ -34,6 +34,7 @@ model User {
   passkeys  Passkey[]
   boardAssignments BoardAssignment[]
   submissions Submission[]
+  quizScores   QuizScore[]
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -134,3 +135,33 @@ model BoardAssignment {
   
   @@unique([boardId, studentId])
 }
+
+model Quiz {
+  id           String      @id @default(cuid())
+  name         String
+  courseWeight Float       @default(0) // 占总评分数
+  totalScore   Float       @default(100) // 满分
+  publishDate  DateTime    @default(now()) // 发布/进行日期
+  isPublished  Boolean     @default(false) // 是否立即公布成绩给学生
+  
+  scores       QuizScore[]
+
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model QuizScore {
+  id        String   @id @default(cuid())
+  quizId    String
+  quiz      Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  studentId String
+  student   User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  score     Float?
+  remark    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([quizId, studentId])
+}
+

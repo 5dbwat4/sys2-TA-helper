@@ -97,8 +97,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const decoded: any = jwt.verify(token, JWT_SECRET);
-    if (decoded.role !== 'TA' && decoded.role !== 'TEACHER') {
-      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+    if (decoded.role !== 'TA') {
+      return NextResponse.json({ error: 'Permission denied: 教师端仅有查看权限，实验批改请由助教执行' }, { status: 403 });
     }
 
     const body = await req.json();

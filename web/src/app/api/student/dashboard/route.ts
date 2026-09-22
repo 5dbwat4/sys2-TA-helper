@@ -30,6 +30,9 @@ export async function GET() {
         },
         submissions: {
           include: { experiment: true }
+        },
+        quizScores: {
+          include: { quiz: true }
         }
       }
     });
@@ -63,21 +66,45 @@ export async function GET() {
       };
     }
 
-    // Only published experiments are visible to students
+    // Query ALL experiments (both published and unpublished)
     const allExperiments = await prisma.experiment.findMany({
-      where: { isPublished: true },
-      orderBy: { number: 'asc' }
+      orderBy: { publishDate: 'asc' }
     });
 
     const submissionsMap = new Map(student.submissions.map(s => [s.experimentId, s]));
 
-    const grades = allExperiments.map(exp => {
+    const formattedExperiments = allExperiments.map(exp => {
+      const isPub = Boolean(exp.isPublished);
+
+      if (!isPub) {
+        // Unpublished experiment:
+        // Student can see: number (e.g. Lab1), expected publish date, hardware/software type, weights, courseWeight
+        // Student CANNOT see: actual title (redacted), due date (shows expected publish date instead), cannot interact
+        // Score shown as 0 / courseWeight
+        return {
+          itemType: 'EXPERIMENT' as const,
+          experimentId: exp.id,
+          experimentNumber: exp.number,
+          experimentName: null, // Title is hidden from students
+          type: exp.type,
+          publishDate: exp.publishDate,
+          dueDate: null, // Hide due date, show publishDate as expected date
+          totalScore: exp.totalScore,
+          courseWeight: exp.courseWeight || 0,
+          courseScore: 0,
+          acceptanceRatio: exp.acceptanceRatio,
+          reportRatio: exp.reportRatio,
+          codeRatio: exp.codeRatio,
+          isPublished: false,
+          submission: null,
+          status: 'UNPUBLISHED'
+        };
+      }
+
       const sub = submissionsMap.get(exp.id);
       let totalScore = null;
-      let status = 'NOT_SUBMITTED';
 
       if (sub) {
-        status = 'GRADED';
         if (sub.checkpointClaimed) {
           totalScore = 0;
         } else {
@@ -90,6 +117,7 @@ export async function GET() {
       }
 
       return {
+        itemType: 'EXPERIMENT' as const,
         experimentId: exp.id,
         experimentNumber: exp.number,
         experimentName: exp.name,
@@ -102,6 +130,7 @@ export async function GET() {
         acceptanceRatio: exp.acceptanceRatio,
         reportRatio: exp.reportRatio,
         codeRatio: exp.codeRatio,
+        isPublished: true,
         submission: sub ? {
           reportScore: sub.reportScore,
           codeScore: sub.codeScore,
@@ -119,7 +148,70 @@ export async function GET() {
       };
     });
 
-    const totalEarnedCourseScore = grades.reduce((acc, g) => acc + (g.courseScore || 0), 0);
+    // Query published quizzes
+    const publishedQuizzes = await prisma.quiz.findMany({
+      where: { isPublished: true },
+      orderBy: { publishDate: 'asc' }
+    });
+
+    const quizScoreMap = new Map((student.quizScores || []).map(qs => [qs.quizId, qs]));
+
+    const quizItems = publishedQuizzes.map(q => {
+      const qs = quizScoreMap.get(q.id);
+      const score = qs?.score ?? null;
+      const courseScore = score !== null ? Math.round((score / q.totalScore) * q.courseWeight * 100) / 100 : null;
+
+      return {
+        itemType: 'QUIZ' as const,
+        id: q.id,
+        quizId: q.id,
+        name: q.name,
+        publishDate: q.publishDate,
+        totalScore: q.totalScore,
+        courseWeight: q.courseWeight,
+        score,
+        courseScore,
+        remark: qs?.remark || null,
+        status: score !== null ? 'GRADED' : 'PENDING'
+      };
+    });
+
+    // Merge experiments and quizzes into a timeline sorted by publishDate
+    // Rule:
+    // 1. By publishDate (earlier first)
+    // 2. If on the same date: Quiz takes priority over Experiment (Quiz on top)
+    const toDateKey = (d: Date | string) => {
+      const dt = new Date(d);
+      return dt.toISOString().slice(0, 10);
+    };
+
+    const mixedTimeline = [...formattedExperiments, ...quizItems].sort((a, b) => {
+      const dateA = toDateKey(a.publishDate);
+      const dateB = toDateKey(b.publishDate);
+
+      if (dateA !== dateB) {
+        return dateA.localeCompare(dateB);
+      }
+
+      // Same day: Quiz takes precedence over Experiment
+      if (a.itemType !== b.itemType) {
+        return a.itemType === 'QUIZ' ? -1 : 1;
+      }
+
+      if (a.itemType === 'EXPERIMENT' && b.itemType === 'EXPERIMENT') {
+        return (a.experimentNumber || '').localeCompare(b.experimentNumber || '');
+      }
+
+      return (a.name || '').localeCompare(b.name || '');
+    });
+
+    const totalEarnedCourseScore =
+      formattedExperiments.reduce((acc, g) => acc + (g.courseScore || 0), 0) +
+      quizItems.reduce((acc, q) => acc + (q.courseScore || 0), 0);
+
+    const totalPossibleWeight =
+      allExperiments.reduce((acc, e) => acc + (e.courseWeight || 0), 0) +
+      publishedQuizzes.reduce((acc, q) => acc + (q.courseWeight || 0), 0);
 
     return NextResponse.json({
       success: true,
@@ -130,10 +222,11 @@ export async function GET() {
         hasCheckpoint: student.hasCheckpoint
       },
       board: boardInfo,
-      grades,
+      grades: formattedExperiments,
+      timelineItems: mixedTimeline,
       courseSummary: {
         totalEarned: Math.round(totalEarnedCourseScore * 100) / 100,
-        maxPossible: 30.0
+        maxPossible: Math.round(totalPossibleWeight * 100) / 100 || 30.0
       }
     });
   } catch (error: any) {

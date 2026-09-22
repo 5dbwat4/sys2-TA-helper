@@ -29,6 +29,19 @@ function AssignmentsContent() {
   const [submitting, setSubmitting] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const [topMessage, setTopMessage] = useState("");
+  const [role, setRole] = useState<string>("TA");
+
+  // Load Session & Role
+  useEffect(() => {
+    fetch('/api/auth/session')
+      .then(res => res.json())
+      .then(data => {
+        if (data.authenticated && data.user) {
+          setRole(data.user.role);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Load Experiments List
   useEffect(() => {
@@ -220,21 +233,32 @@ function AssignmentsContent() {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold">实验作业批改台</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-bold">
+              {role === "TEACHER" ? "学生作业与成绩查看" : "实验作业批改台"}
+            </h1>
+            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${role === "TEACHER" ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" : "bg-purple-500/20 text-purple-300 border border-purple-500/30"}`}>
+              {role === "TEACHER" ? "教师视察 (只读)" : "助教批改"}
+            </span>
+          </div>
           <p className="text-sm text-zinc-400 mt-1">
-            选择实验项目，录入学生验收、报告与代码成绩，支持单项扣分与 sim_c++ 查重。
+            {role === "TEACHER"
+              ? "查看全体学生各实验阶段现场验收、报告、代码成绩明细与查重分析（教师端为只读权限）。"
+              : "选择实验项目，录入学生验收、报告与代码成绩，支持单项扣分与 sim_c++ 查重。"}
           </p>
         </div>
 
-        <button
-          onClick={handlePlagiarismCheck}
-          className="px-4 py-2.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 rounded-xl font-medium text-sm transition flex items-center gap-2"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.332.192 3 1.732 3z" />
-          </svg>
-          执行代码查重 (sim_c++)
-        </button>
+        {role === "TA" && (
+          <button
+            onClick={handlePlagiarismCheck}
+            className="px-4 py-2.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 rounded-xl font-medium text-sm transition flex items-center gap-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.332.192 3 1.732 3z" />
+            </svg>
+            执行代码查重 (sim_c++)
+          </button>
+        )}
       </div>
 
       {topMessage && (
@@ -376,12 +400,21 @@ function AssignmentsContent() {
                         )}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => handleOpenGradeModal(st)}
-                          className="px-3.5 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500 hover:text-white text-sky-300 border border-sky-500/30 text-xs font-semibold transition"
-                        >
-                          {isGraded ? "修改评分" : "录入成绩"}
-                        </button>
+                        {role === "TEACHER" ? (
+                          <button
+                            onClick={() => handleOpenGradeModal(st)}
+                            className="px-3.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 text-xs font-semibold transition"
+                          >
+                            查看详情
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleOpenGradeModal(st)}
+                            className="px-3.5 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500 hover:text-white text-sky-300 border border-sky-500/30 text-xs font-semibold transition"
+                          >
+                            {isGraded ? "修改评分" : "录入成绩"}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -399,7 +432,7 @@ function AssignmentsContent() {
             <div className="flex justify-between items-center pb-2 border-b border-white/10">
               <div>
                 <h2 className="text-xl font-bold text-zinc-100">
-                  评分: {selectedStudent.name} ({selectedStudent.studentId})
+                  {role === "TEACHER" ? "成绩详情 (只读)" : "评分"}: {selectedStudent.name} ({selectedStudent.studentId})
                 </h2>
                 <p className="text-xs text-zinc-400 mt-0.5">
                   {currentExp?.number} - {currentExp?.name}
@@ -432,8 +465,9 @@ function AssignmentsContent() {
                     step="0.5"
                     value={acceptanceScore}
                     onChange={e => setAcceptanceScore(e.target.value)}
+                    disabled={role === "TEACHER"}
                     placeholder="0-100"
-                    className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-mono"
+                    className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-mono disabled:opacity-75 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div>
@@ -447,8 +481,9 @@ function AssignmentsContent() {
                     step="0.5"
                     value={reportScore}
                     onChange={e => setReportScore(e.target.value)}
+                    disabled={role === "TEACHER"}
                     placeholder="0-100"
-                    className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-mono"
+                    className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-mono disabled:opacity-75 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div>
@@ -462,8 +497,9 @@ function AssignmentsContent() {
                     step="0.5"
                     value={codeScore}
                     onChange={e => setCodeScore(e.target.value)}
+                    disabled={role === "TEACHER"}
                     placeholder="0-100"
-                    className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-mono"
+                    className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-mono disabled:opacity-75 disabled:cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -477,7 +513,8 @@ function AssignmentsContent() {
                     min="0"
                     value={reportPenalty}
                     onChange={e => setReportPenalty(parseFloat(e.target.value) || 0)}
-                    className="w-full px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-sm font-mono text-red-300"
+                    disabled={role === "TEACHER"}
+                    className="w-full px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-sm font-mono text-red-300 disabled:opacity-75 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div>
@@ -487,19 +524,21 @@ function AssignmentsContent() {
                     min="0"
                     value={codePenalty}
                     onChange={e => setCodePenalty(parseFloat(e.target.value) || 0)}
-                    className="w-full px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-sm font-mono text-red-300"
+                    disabled={role === "TEACHER"}
+                    className="w-full px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-sm font-mono text-red-300 disabled:opacity-75 disabled:cursor-not-allowed"
                   />
                 </div>
               </div>
 
               {/* Plagiarism Tag */}
               <div className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-2">
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-zinc-300">
+                <label className={`flex items-center gap-2 text-xs font-medium text-zinc-300 ${role === "TEACHER" ? "cursor-default" : "cursor-pointer"}`}>
                   <input
                     type="checkbox"
                     checked={isPlagiarised}
                     onChange={e => setIsPlagiarised(e.target.checked)}
-                    className="rounded text-red-500 focus:ring-red-400"
+                    disabled={role === "TEACHER"}
+                    className="rounded text-red-500 focus:ring-red-400 disabled:opacity-75"
                   />
                   <span>标记为疑似抄袭 / 雷同作业</span>
                 </label>
@@ -508,20 +547,22 @@ function AssignmentsContent() {
                     type="text"
                     value={plagiarismGroup}
                     onChange={e => setPlagiarismGroup(e.target.value)}
+                    disabled={role === "TEACHER"}
                     placeholder="雷同组备注 (如: 与 324010xxxx 代码相似 85%)..."
-                    className="w-full px-3 py-1.5 rounded-lg bg-white/5 border border-red-500/30 text-xs text-red-200"
+                    className="w-full px-3 py-1.5 rounded-lg bg-white/5 border border-red-500/30 text-xs text-red-200 disabled:opacity-75 disabled:cursor-not-allowed"
                   />
                 )}
               </div>
 
               {/* Checkpoint Tag */}
               <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20 space-y-2">
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-amber-300">
+                <label className={`flex items-center gap-2 text-xs font-medium text-amber-300 ${role === "TEACHER" ? "cursor-default" : "cursor-pointer"}`}>
                   <input
                     type="checkbox"
                     checked={checkpointClaimed}
                     onChange={e => setCheckpointClaimed(e.target.checked)}
-                    className="rounded text-amber-500 focus:ring-amber-400"
+                    disabled={role === "TEACHER"}
+                    className="rounded text-amber-500 focus:ring-amber-400 disabled:opacity-75"
                   />
                   <span>标记为申领了 Checkpoint（免做本实验，总分记 0 分）</span>
                 </label>
@@ -530,8 +571,9 @@ function AssignmentsContent() {
                     type="text"
                     value={remark}
                     onChange={e => setRemark(e.target.value)}
+                    disabled={role === "TEACHER"}
                     placeholder="备注原因 (如: 申领了Checkpoint)..."
-                    className="w-full px-3 py-1.5 rounded-lg bg-white/5 border border-amber-500/30 text-xs text-amber-200"
+                    className="w-full px-3 py-1.5 rounded-lg bg-white/5 border border-amber-500/30 text-xs text-amber-200 disabled:opacity-75 disabled:cursor-not-allowed"
                   />
                 )}
               </div>
@@ -542,21 +584,31 @@ function AssignmentsContent() {
                 <span className="text-2xl font-bold font-mono text-sky-300">{previewScore} 分</span>
               </div>
 
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedStudent(null)}
-                  className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-sm transition"
-                >
-                  取消
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-5 py-2 rounded-xl bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold shadow transition disabled:opacity-50"
-                >
-                  {submitting ? "正在保存..." : "保存评分"}
-                </button>
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                {role === "TEACHER" ? (
+                  <span className="text-xs text-amber-400 font-medium">
+                    ℹ️ 教师端为只读视察模式，实验评分由助教团队执行。
+                  </span>
+                ) : <div />}
+
+                <div className="flex gap-3 w-full sm:w-auto justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedStudent(null)}
+                    className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-sm transition"
+                  >
+                    {role === "TEACHER" ? "关闭" : "取消"}
+                  </button>
+                  {role === "TA" && (
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      className="px-5 py-2 rounded-xl bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold shadow transition disabled:opacity-50"
+                    >
+                      {submitting ? "正在保存..." : "保存评分"}
+                    </button>
+                  )}
+                </div>
               </div>
             </form>
           </div>

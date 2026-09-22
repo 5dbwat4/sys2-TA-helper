@@ -78,5 +78,16 @@ export function getPinyinInitials(name: string): string {
   if (STUDENT_PINYIN_MAP[trimmed]) {
     return STUDENT_PINYIN_MAP[trimmed];
   }
-  return trimmed.toLowerCase();
+  const letters = 'abcdefghjklmnopqrstwxyz';
+  const boundaries = '阿八嚓哒妸发旮哈讥咔垃妈拿噢妑七呥仨他哇夕丫帀';
+  return Array.from(trimmed).map(char => {
+    if (/[a-zA-Z0-9]/.test(char)) return char.toLowerCase();
+    for (let i = boundaries.length - 1; i >= 0; i--) {
+      if (char.localeCompare(boundaries[i], 'zh-Hans-CN') >= 0) {
+        return letters[i];
+      }
+    }
+    return char.toLowerCase();
+  }).join('');
 }
+

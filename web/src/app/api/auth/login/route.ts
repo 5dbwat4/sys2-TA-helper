@@ -51,10 +51,12 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: '请输入教师姓名和密码' }, { status: 400 });
       }
 
-      if (
-        (username === '吴磊' || username === '卢立') &&
-        password === 'ZJU-sys2_fa26@WL'
-      ) {
+      const teacherPasswords: Record<string, string> = {
+        '吴磊': process.env.TEACHER_WULEI_PWD || 'ZJU-sys2_fa26@WL',
+        '卢立': process.env.TEACHER_LULI_PWD || 'ZJU-sys2_fa26@LL',
+      };
+
+      if (teacherPasswords[username] && password === teacherPasswords[username]) {
         const teacherId = username === '吴磊' ? 'teacher_wulei' : 'teacher_luli';
         const teacher = await prisma.user.upsert({
           where: { studentId: teacherId },
