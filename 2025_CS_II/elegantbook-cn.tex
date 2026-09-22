@@ -1,0 +1,204 @@
+\documentclass[fontset=ubuntu,lang=cn,12pt]{elegantbook}
+
+\usepackage{geometry}
+\usepackage{tabularx}
+\usepackage{graphicx}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{makecell}
+\usepackage{adjustbox}
+\usepackage{multirow}
+\usepackage{xeCJK}
+
+
+\title{2025 CS II实验评分标准}
+
+\author{}
+\institute{浙江大学}
+\bioinfo{邮箱}{}
+\date{\today}
+
+\setcounter{tocdepth}{3}
+
+\logo{logo-blue.png}
+\cover{cover.pdf}
+
+%\newcommand{\wenbo}[1]{\textcolor{blue}{Wenbo:#1}}
+
+\def\equationautorefname        {式}
+\def\footnoteautorefname        {脚注}
+\def\figureautorefname          {图}
+\def\tableautorefname           {表}
+\def\partautorefname            {篇}
+\def\chapterautorefname         {章节}
+\def\sectionautorefname         {小节}
+\def\subsectionautorefname      {小节}
+\def\subsubsectionautorefname   {小节}
+\def\paragraphautorefname       {段落}
+\def\subparagraphautorefname    {子段落}
+\def\appendixautorefname        {附录}
+\def\FancyVerbLineautorefname   {行}
+\def\theoremautorefname         {定理}
+\def\lstlistingname             {代码}
+\def\algorithmcfname            {算法}
+\def\algorithmautorefname       {算法}
+\def\listalgorithmcfname        {算法}
+
+
+%-------------------------------------------%
+%       Declare Statistic Variables         %
+%-------------------------------------------%
+\newcommand{\NofSearch}{7.6M\xspace}
+\newcommand{\NumberOfRepositories}{2,581,758\xspace}
+\newcommand{\NumberOfJobs}{910,108\xspace}
+
+\newcommand{\NumberOfScriptUsage}{15,721,155\xspace}
+\newcommand{\NumberOfScriptCreators}{20,512\xspace}
+\newcommand{\NumberOfVerifiedCreators}{102\xspace}
+\newcommand{\NumberOfUnverifiedCreators}{20,410\xspace}
+
+\newcommand{\NumberOfScripts}{33,895\xspace}
+\newcommand{\NumberOfVerifiedScripts}{964\xspace}
+\newcommand{\NumberOfUnverifiedScripts}{32,931\xspace}
+\newcommand{\PercentageOfMaximumInfluencedRepos}{93.64\%\xspace}
+
+
+% most popular
+\newcommand{\PofCheckoutRepos}{91.52\%\xspace}
+
+% deployment / artifacts
+\newcommand{\NofDeploymentScripts}{2,777\xspace}
+\newcommand{\PofDeploymentScripts}{8.19\%\xspace}
+\newcommand{\NofDeploymentUsage}{513,818\xspace}
+\newcommand{\PofDeploymentUsage}{19.90\%\xspace}
+
+\newcommand{\NofArtifactScripts}{1,599\xspace}
+\newcommand{\PofArtifactScripts}{4.72\%\xspace}
+\newcommand{\NofArtifactUsage}{340,877\xspace}
+\newcommand{\PofArtifactUsage}{13.20\%\xspace}
+
+% runtime environment
+\newcommand{\NofDockerScript}{13,139\xspace}
+\newcommand{\NofNodeScript}{13,143\xspace}
+\newcommand{\NofRCScript}{6,562\xspace}
+
+\newcommand{\PofDockerScript}{40.00\%\xspace}
+\newcommand{\PofNodeScript}{40.02\%\xspace}
+\newcommand{\PofRCScript}{19.98\%\xspace}
+
+\newcommand{\NofDockerUsage}{424,144\xspace}
+\newcommand{\NofNodeUsage}{2,455,401\xspace}
+\newcommand{\NofRCUsage}{168,984\xspace}
+
+\newcommand{\PofDockerUsage}{16.43\%\xspace}
+\newcommand{\PofNodeUsage}{95.11\%\xspace}
+\newcommand{\PofRCUsage}{6.55\%\xspace}
+
+
+
+% how to reference
+\newcommand{\PofRTag}{93.31\%\xspace}
+\newcommand{\PofRBranch}{24.27\%\xspace}
+\newcommand{\PofRHash}{2.19\%\xspace}
+\newcommand{\PofInvalid}{7.04\%\xspace}
+
+% CVE influence
+\newcommand{\NofCVETotal}{150,554\xspace}
+\newcommand{\NofCodeql}{146,617\xspace}
+\newcommand{\NofCheckSpelling}{785\xspace}
+\newcommand{\NofVaultAction}{235\xspace}
+\newcommand{\NofGajiraComment}{211\xspace}
+\newcommand{\NofGajiraCreate}{3,140\xspace}
+
+\newcommand{\NofCVEExistTotal}{368\xspace}
+\newcommand{\NofCVECheckSpelling}{236\xspace}
+\newcommand{\NofCVECodeql}{22\xspace}
+\newcommand{\NofCVEVaultAction}{95\xspace}
+\newcommand{\NofCVEGajiraComment}{12\xspace}
+\newcommand{\NofCVEGajiraCreate}{9\xspace}
+
+% tags count
+\newcommand{\NofLessTenTags}{25,229\xspace}
+\newcommand{\PofLessTenTags}{78.52\%\xspace}
+\newcommand{\NofMoreTenTags}{3,686\xspace}
+\newcommand{\PofMoreTenTags}{11.47\%\xspace}
+
+\newcommand{\PofCVETotal}{5.83\%\xspace}
+\newcommand{\PofCodeql}{4.36\%\xspace}
+
+\newcommand{\toolname}{\textit{CIAnalyser}\xspace}
+\newcommand{\queryname}{\textit{CIQuerier}\xspace}
+\newcommand{\AvgUpdateLag}{11.04\xspace}
+\newcommand{\PofOldUsage}{51.00\%\xspace}
+\newcommand{\PofOldRepo}{77.27\%\xspace}
+%----------------------------
+
+\def\arraystretch{1.5}
+\definecolor{mygray}{gray}{0.9}
+
+\newcommand{\conclusionbox}[1]{
+\vspace{+12pt}
+\noindent\fbox{%
+    \parbox{0.97\textwidth}{#1}
+}
+\vspace{+12pt}
+}
+
+\newcommand{\code}[1]{\mintinline{text}{#1}}
+
+% added
+\setminted[]{
+frame=lines,
+framesep=2mm,
+baselinestretch=1,
+% fontsize=\scriptsize,
+tabsize=2,
+linenos,
+autogobble,
+numbersep=10pt,
+escapeinside=||,
+breaklines}
+
+
+% 本文档命令
+\usepackage{array}
+\newcommand{\ccr}[1]{\makecell{{\color{#1}\rule{1cm}{1cm}}}}
+\usepackage{xcolor}
+
+\newcommand{\ji}[1]{\textcolor{orange}{Ji:#1}}
+\newcommand{\ziyue}[1]{\textcolor{cyan}{Ziyue:#1}}
+\newcommand{\guo}[1]{\textcolor{magenta}{Guo:#1}}
+\newcommand{\xiankai}[1]{\textcolor{red}{Xiankai:#1}}
+% 修改标题页的橙色带
+\definecolor{customcolor}{RGB}{255,255,255}
+\colorlet{coverlinecolor}{customcolor}
+
+\linespread{1.5}
+
+\begin{document}
+
+\begin{titlepage}
+%\includepdf[pages=-]{figure/cover.pdf}
+\end{titlepage}
+% \maketitle
+\frontmatter
+\mainmatter
+
+
+
+
+\tableofcontents
+%\listoffigures
+%\listoftables
+
+\input{chapter1.tex}  
+\input{chapter2.tex}  
+\input{chapter3.tex} 
+\input{chapter4.tex}
+\input{chapter5.tex}
+
+\appendix
+\input{Q&A}
+
+
+\end{document}

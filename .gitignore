@@ -4,3 +4,10 @@ __pycache__/
 *.py[cod]
 venv/
 .venv/
+node_modules/
+.next/
+.env
+.env*
+!.env.example
+test-puppeteer.js
+*.local

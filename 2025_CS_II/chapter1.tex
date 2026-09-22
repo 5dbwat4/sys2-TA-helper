@@ -1,0 +1,77 @@
+\chapter{Lab 0}
+
+\section{评分标准}
+\textbf{60\%验收+40\%报告}
+
+验收部分八个题,每个同学问两个总共占验收分数的30\%，剩下按文档说明根据完成指令类型数量给分。
+\begin{enumerate}
+\item 实现 R Type 的基本数据通路（通过测试 rtype.hex，累计可获得实验部分 10\% 的分数）
+\item 实现 I Type 的基本数据通路（通过测试 itype.hex，累计可获得实验部分 20\% 的分数）
+\item 实现 S Type 的基本数据通路（通过测试 stype.hex，累计可获得实验部分 30\% 的分数）
+\item 实现 B Type 的完整数据通路（通过测试 btype.hex，累计可获得实验部分 40\% 的分数）
+\item 实现 U Type 的完整数据通路（通过测试 utype.hex，累计可获得实验部分 50\% 的分数）
+\item 实现 J Type 的完整数据通路（通过测试 jtype.hex，累计可获得实验部分 60\% 的分数）
+\item 实现剩余指令的完整数据通路（通过测试 remain.hex，累计可获得实验部分 70\% 的分数）
+\item 实现所有指令的完整数据通路（通过测试 full.hex，累计可获得实验部分 80\% 的分数）
+\item 下板验证，累计可获得实验部分 100\% 的分数
+\end{enumerate}
+\section{预设问题}
+\begin{enumerate}
+
+    \item \textbf{Q：}使用 \texttt{always@(*)} 和一个大的 case 语句直接对所有指令进行译码，可能会引入什么硬件电路问题？
+    
+    \textbf{A：}容易出现输出寄存器漏赋值、default 分支漏写等问题，造成出现 latch 的时序错误。
+
+    \item \textbf{Q：}跳转指令，如 JAL (J-Type) 和 JALR (I-Type)，它们都会改变 PC 的值，并且都需要将 $PC+4$ 保存到 rd 寄存器中。请问在设计的控制单元中，这两个指令的控制信号有何异同？
+
+    \textbf{A：}(意思相近即可)
+    \begin{itemize}
+        \item \textbf{相同点：}
+        \begin{itemize}
+            \item \texttt{we\_reg}：都为 1，因为它们都需要将返回地址写入目标寄存器 rd。
+            \item \texttt{wb\_sel}：都应选择 \texttt{WB\_SEL\_PC}，因为它们写回寄存器的值都是 $PC+4$。
+        \end{itemize}
+        \item \textbf{不同点：}
+        \begin{itemize}
+            \item \texttt{immgen\_op} (立即数生成)：
+                \begin{itemize}
+                    \item JAL：应设置为 \texttt{UJ\_IMM}，生成 J-Type 立即数。
+                    \item JALR：应设置为 \texttt{I\_IMM}，生成 I-Type 立即数。
+                \end{itemize}
+            \item \texttt{alu\_asel} (ALU A口选择):
+                \begin{itemize}
+                    \item JAL：应设置为 \texttt{ASEL\_PC}，将 PC 作为 ALU 的输入A。
+                    \item JALR：应设置为 \texttt{ASEL\_REG}，将 rs1 的值作为 ALU 的输入A。
+                \end{itemize}
+            \item \texttt{alu\_bsel} (ALU B口选择): JAL 和 JALR 都应设置为 \texttt{BSEL\_IMM}，将生成的立即数作为 ALU 的输入B。
+            \item \texttt{alu\_op} (ALU 操作): JAL 和 JALR 都应设置为 \texttt{ALU\_ADD}，因为它们的目标地址计算都是加法（$PC + \text{imm}$ 或 $\text{rs1} + \text{imm}$）。
+        \end{itemize}
+    \end{itemize}
+
+    \item \textbf{Q：}实验的仿真测试环节引入了 Spike 作为模型进行对比测试。请问这种测试方法相比于传统的自己编写Testbench、手动检查波形的测试方法，有哪些优势？它主要能帮助发现哪一类错误？
+    
+    \textbf{A：}Co-simulation是自动化的。在第一条指令执行出错时就能立刻暂停并报错，精确地指出是哪条指令、哪个PC地址、哪个寄存器状态不匹配。这使得Debug的定位效率大大提高。主要能发现指令译码错误、控制信号错误、数据通路逻辑错误、边界条件和特殊指令错误等。
+
+    \item \textbf{Q：}在单周期CPU设计中，其最主要的性能瓶颈是时钟周期必须满足最慢指令的执行时间。这条“最慢”的指令通常是什么？并请详细描述该指令指令执行时的关键路径，即从时钟上升沿触发开始，信号传播所需时间最长的一条路径。需讲出经过哪些主要的功能单元。
+    
+    \textbf{A：}LOAD 指令的关键路径最长：
+    
+    PC $\rightarrow$ 指令存储器 $\rightarrow$ 寄存器堆和控制单元 $\rightarrow$ ALU $\rightarrow$ 数据存储器 $\rightarrow$ 写回选择MUX $\rightarrow$ 寄存器堆写端口。
+
+    \item \textbf{Q:} 在单周期 CPU 设计中，我们初步引入了内存接口，简述你设置了哪些通道信号为非常闭常开状态？
+    
+    \textbf{A:} 读请求信号和写请求信号由译码结果给出。
+
+    \item \textbf{Q:} 单周期 CPU 的哪些部分是时序电路？
+    
+    \textbf{A:} PC 和寄存器堆。
+
+    \item \textbf{Q:} ALU 的 a 口和 b 口各需要支持哪些输入类型，请各举一条例子。
+    
+    \textbf{A:} a口（寄存器 \texttt{add}，PC \texttt{jal}），b口（寄存器 \texttt{add}，立即数 \texttt{addi}）。
+
+    \item \textbf{Q:} 为什么 RegFile 的写通道被设计为时序电路而读通道被设计为组合电路？
+    
+    \textbf{A:} 写通道为了存储数据需要保证时钟同步，在下一个时钟周期再进行写入，而读通道需要保证即时得到正确数据避免冲突。
+
+\end{enumerate}

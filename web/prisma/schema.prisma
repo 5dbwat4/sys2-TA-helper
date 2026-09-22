@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  TA
+  TEACHER
+}
+
+enum ExperimentType {
+  SOFTWARE
+  HARDWARE
+  BOTH
+}
+
+model User {
+  id        String   @id @default(cuid())
+  studentId String   @unique
+  name      String
+  role      Role     @default(STUDENT)
+  
+  // Encrypted ZJUAM credentials for TA
+  zjuamAccount String?
+  zjuamPassword String? // Encrypted
+
+  hasCheckpoint Boolean  @default(false)
+  
+  passkeys  Passkey[]
+  boardAssignments BoardAssignment[]
+  submissions Submission[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Passkey {
+  id             String  @id
+  userId         String
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  publicKey      Bytes
+  counter        BigInt
+  deviceType     String
+  backedUp       Boolean
+  transports     String?
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Experiment {
+  id               String   @id @default(cuid())
+  number           String   @unique
+  name             String
+  publishDate      DateTime
+  dueDate          DateTime
+  isPublished      Boolean  @default(false)
+  
+  totalScore       Float
+  courseWeight     Float    @default(0)
+  acceptanceRatio  Float
+  reportRatio      Float
+  codeRatio        Float
+  
+  type             ExperimentType
+  
+  questions        Question[]
+  submissions      Submission[]
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Question {
+  id           String     @id @default(cuid())
+  content      String     @db.Text
+  experimentId String
+  experiment   Experiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+}
+
+model Submission {
+  id              String     @id @default(cuid())
+  studentId       String
+  student         User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  experimentId    String
+  experiment      Experiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  
+  reportScore     Float?
+  codeScore       Float?
+  acceptanceScore Float?
+  
+  // Negative values for penalty
+  reportPenalty   Float      @default(0)
+  codePenalty     Float      @default(0)
+  
+  // Plagiarism flags
+  isPlagiarised   Boolean    @default(false)
+  plagiarismGroup String?
+
+  // Checkpoint flag & remark
+  checkpointClaimed Boolean  @default(false)
+  remark          String?
+  
+  submitTime      DateTime?
+  
+  @@unique([studentId, experimentId])
+}
+
+model Board {
+  id           String   @id @default(cuid())
+  assetNo      String   @unique
+  dbNo         String   @unique
+  contactPhone String?
+  
+  assignments  BoardAssignment[]
+}
+
+model BoardAssignment {
+  id         String   @id @default(cuid())
+  boardId    String
+  board      Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  studentId  String
+  student    User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  isReturned Boolean  @default(false)
+  
+  assignedAt DateTime @default(now())
+  returnedAt DateTime?
+  
+  @@unique([boardId, studentId])
+}

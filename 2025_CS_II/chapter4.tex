@@ -1,0 +1,62 @@
+\chapter{Lab 3}
+
+
+\section{评分标准}
+\textbf{60\%验收+40\%报告}
+
+验收部分八个题,每个同学问两个总共占验收分数的30\%，70\% 实验部分由 35\% 仿真和 35\% 上板组成。
+
+报告部分分数由思考题组成，共3个思考题，每个思考题若回答不正确扣5分，若回答不完全正确扣1-4分。
+
+
+\section{预设问题}
+
+\begin{enumerate}
+    \item \textbf{Q：}为什么软件卷积 mul\_compute 不能直接用 * 号？
+
+    \textbf{A：}
+    同学们能答出我们的处理器目前不支持mul指令即可。更准确的答案是因为编译器使用默认rv64gc 的mabi生成了处理器不支持的乘法指令，如果march支持的话是可以翻译成其他实现的。如果同学们不理解问题，可以转述为为什么 mul\_compute 如果编译出来mul指令执行会错误。
+
+    \item \textbf{Q：}在 MMIO 中新增外设（如神经网络加速器，乘除法加速器）需要做哪些步骤？
+
+    \textbf{A：}1. 在硬件中实现加速器逻辑模块（如 ConvUnit），并将其端口与 AXI 寄存器接口对应。2. 在SCPU.sv中挂载该外设到 AXI-Lite 总线。具体来说是先实例化硬件，再改Axi\_Interconnect 实例化的参数，增加OUTPUT\_NUM，并且增加对应slave的内存范围：3. 在软件中定义对应的基地址指针（如 CONV\_BASE = (uint64\_t*)0x10001000L），通过普通的内存读写访问外设寄存器，实现控制与数据交互。
+
+    \item \textbf{Q：}为什么卷积加速器的读口要分为两个地址？若总线宽度变为4字节，需要几个数据读口？
+
+    \textbf{A：}0x10001000：数据端口，宽度 8 字节，读出卷积计算结果的低 64 位，仅在脉动阵列就绪时可以读出正确结果。0x10001008：数据端口，宽度 8 字节，读出卷积计算结果的高 64 位，仅在脉动阵列就绪时可以读出正确结果。64位一维卷积结果为128位。内存总线宽度8字节，因此需要两个读口。若总线宽度变为4字节，需要4个读口。
+
+    \item \textbf{Q：} conv\_compute() 函数中，为了保证开头和结尾的数据在被卷积核覆盖前也能够正常卷积，开头和结尾分别需要补多少个 0？整个过程中一共要进行多少次卷积？
+
+    \textbf{A：}根据函数 void conv\_compute(const uint64\_t* data\_array, size\_t data\_len, const uint64\_t* kernel\_array, size\_t kernel\_len, uint64\_t* dest) 可知，前补kernel\_len-1个0, 后补kernel\_len - 1个0, 一共卷积data\_len + kernel\_len - 1 次。
+
+    \item \textbf{Q：}尝试描述卷积加速器的硬件结构
+
+    \textbf{A：}同sys1 lab4-1，首先是移位寄存器用于接收数据，每个寄存器和一个卷积核的分量接到一个乘法器上，得到 KERNEL\_LEN 个计算结果，通过并行加法树得到卷积结果。
+
+    \item \textbf{Q：}参考main.c，思考能否利用mul\_compute函数实现4\*4矩阵与4\*1向量的乘法？请大致描述工作过程。
+
+    \textbf{A：}例如 $ \mathbf{A} \in \mathbb{R}^{4 \times 4}, \mathbf{x} \in \mathbb{R}^4$，
+$ \mathbf{A} = \begin{pmatrix} 1 & 2 & 3 & 4 \\ 5 & 6 & 7 & 8 \\ 9 & 10 & 11 & 12 \\ 13 & 14 & 15 & 16 \end{pmatrix}, \mathbf{x} = (2, 0, 2, 5)^T $ \\
+工作过程：将 $ \mathbf{A} $ 展开为 (1, 2, ... , 16)作为数据输入，$\mathbf{x}$ 的四个分量作为卷积核进行卷积运算，$ \mathbf{Ax} = (result\_mul[3],\ result\_mul[7],\ result\_mul[11],\ result\_mul[15])^T $
+
+    \item \textbf{Q：}相比 mul\_compute ，使用 conv\_compute 计算卷积有哪些优势和不足？
+
+    \textbf{A：}优势：
+  1. 硬件卷积加速器（如脉动阵列）是针对卷积的 “乘累加” 操作专门设计的并行架构，处理速度更快。
+  2. 对硬件的应用更充分，计算卷积时不会占用CPU 资源
+  3. 函数逻辑更简单，减少软硬件转换的开销
+
+不足：
+  1. 灵活性差，代码参数是写死的
+  2. 带来额外的硬件开销
+
+    同学们优势劣势答出各答一个即可。
+
+    \item \textbf{Q：}实验中用到了哪些外设，分别用来干什么？
+
+    \textbf{A：}\\
+1. 串口模块：用于和主机通信传输数据\\
+2. 卷积加速器：加速卷积运算\\
+3. mtime reg： 用于获取当前时钟的值
+
+\end{enumerate}
