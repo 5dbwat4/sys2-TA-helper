@@ -55,7 +55,7 @@ export default function Navbar({
         <a href="/dashboard" className="hover:text-blue-500 transition-colors">Dashboard</a>
         <a href="/experiments" className="hover:text-blue-500 transition-colors">Experiments</a>
         {role === "TA" && (
-          <a href="/checkoff" className="hover:text-emerald-500 font-semibold transition-colors">Checkoff (验收)</a>
+          <a href="/checkoff" className="hover:text-emerald-500 font-semibold transition-colors">Checkoff</a>
         )}
         {role === "TA" && (
           <a href="/assignments" className="hover:text-blue-500 transition-colors">Assignments</a>
