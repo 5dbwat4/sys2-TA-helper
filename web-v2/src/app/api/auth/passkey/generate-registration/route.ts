@@ -2,20 +2,36 @@ import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import { generateRegistrationOptions } from "@simplewebauthn/server";
 import { prisma } from "@/lib/prisma";
-import { requireSession, withAuth } from "@/lib/auth";
+import { getSession, getSetupTicket, withAuth } from "@/lib/auth";
 import { env } from "@/lib/env";
 
+/**
+ * Registration options for binding a new passkey.
+ * Allowed when either:
+ *  - fully logged in (normal case), or
+ *  - holding a setup ticket (first-time TA setup flow, before session exists).
+ */
 export const GET = withAuth(async () => {
-  const session = await requireSession();
-  const user = await prisma.user.findUnique({ where: { id: session.id } });
-  if (!user) return Response.json({ error: "USER_NOT_FOUND" }, { status: 404 });
+  const session = await getSession();
+  const ticket = session ? null : await getSetupTicket();
+  if (!session && !ticket) {
+    return Response.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  }
 
-  const userPasskeys = await prisma.passkey.findMany({ where: { userId: user.id } });
+  const studentId = session?.studentId ?? ticket!.studentId;
+  const user = await prisma.user.findUnique({ where: { studentId } });
+
+  // During setup the user row may not exist yet — WebAuthn user handle can be
+  // the studentId; verify step resolves/upserts the user via the same ticket.
+  const userHandle = user?.id ?? studentId;
+  const userPasskeys = user
+    ? await prisma.passkey.findMany({ where: { userId: user.id } })
+    : [];
 
   const options = await generateRegistrationOptions({
     rpName: env.passkeyRpName,
     rpID: env.passkeyRpId,
-    userName: user.studentId,
+    userName: studentId,
     attestationType: "none",
     excludeCredentials: userPasskeys.map((pk) => ({
       id: pk.id,
@@ -25,7 +41,7 @@ export const GET = withAuth(async () => {
   });
 
   const challengeToken = jwt.sign(
-    { challenge: options.challenge, userId: user.id },
+    { challenge: options.challenge, userId: userHandle, setupStudentId: ticket?.studentId },
     env.jwtSecret,
     { expiresIn: "5m" },
   );

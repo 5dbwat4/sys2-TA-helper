@@ -13,6 +13,10 @@ model User {
   name      String
   role      String   @default("STUDENT")
   
+  // TA credentials (username + hashed password), set during first-time setup
+  username     String?  @unique
+  passwordHash String?
+
   // Encrypted ZJUAM credentials for TA
   zjuamAccount String?
   zjuamPassword String? // Encrypted

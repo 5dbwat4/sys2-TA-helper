@@ -5,6 +5,8 @@ import { routing } from "./i18n/routing";
 const intlMiddleware = createMiddleware(routing);
 
 const PUBLIC_PATHS = ["/login"];
+/** Paths accessible without a full session (setup requires its own ticket, checked client-side). */
+const TICKET_PATHS = ["/setup"];
 const STUDENT_ALLOWED = ["/me"];
 
 function parseJwt(token: string): { role?: string; exp?: number } | null {
@@ -47,6 +49,9 @@ export default function middleware(request: NextRequest) {
   const isPublic = PUBLIC_PATHS.some(
     (p) => pathnameWithoutLocale === p || pathnameWithoutLocale.startsWith(p + "/"),
   );
+  const isTicketPath = TICKET_PATHS.some(
+    (p) => pathnameWithoutLocale === p || pathnameWithoutLocale.startsWith(p + "/"),
+  );
 
   // Logged-in user visiting /login → send to their home
   if (isPublic && session) {
@@ -55,8 +60,18 @@ export default function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Unauthenticated → /login
-  if (!isPublic && !session) {
+  // /setup requires a setup ticket (or an existing session)
+  if (isTicketPath && !session) {
+    const ticket = request.cookies.get("setup_ticket")?.value;
+    if (!ticket) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
+    }
+  }
+
+  // Unauthenticated → /login (except public & ticket paths)
+  if (!isPublic && !isTicketPath && !session) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

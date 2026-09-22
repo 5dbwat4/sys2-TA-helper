@@ -37,4 +37,11 @@ export const env = {
   get dingtalkSecret() {
     return process.env.DINGTALK_SECRET ?? "";
   },
+  /** Comma-separated student IDs allowed to register/login as TA. */
+  get taRoster(): string[] {
+    return (process.env.TA_ROSTER ?? "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  },
 };

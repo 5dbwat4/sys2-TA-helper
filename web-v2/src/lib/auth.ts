@@ -1,6 +1,7 @@
 import "server-only";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
+import { ZodError } from "zod";
 import { env } from "./env";
 
 export type Role = "STUDENT" | "TA" | "TEACHER";
@@ -69,7 +70,53 @@ export class AuthError extends Error {
   }
 }
 
-/** Wrap a route handler with uniform auth-error → JSON response mapping. */
+/* ------------------------------------------------------- */
+/* Setup ticket: short-lived credential proving identity    */
+/* via ZJUAM (or future token), allowing first-time TA      */
+/* profile setup (username/password/passkey).               */
+/* ------------------------------------------------------- */
+
+const SETUP_COOKIE = "setup_ticket";
+
+export interface SetupTicket {
+  studentId: string;
+  name: string;
+}
+
+export async function setSetupTicket(ticket: SetupTicket) {
+  const store = await cookies();
+  const token = jwt.sign(ticket, env.jwtSecret, { expiresIn: "15m" });
+  store.set(SETUP_COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 15 * 60,
+    path: "/",
+  });
+}
+
+export async function getSetupTicket(): Promise<SetupTicket | null> {
+  const store = await cookies();
+  const token = store.get(SETUP_COOKIE)?.value;
+  if (!token) return null;
+  try {
+    return jwt.verify(token, env.jwtSecret) as SetupTicket;
+  } catch {
+    return null;
+  }
+}
+
+export async function clearSetupTicket() {
+  const store = await cookies();
+  store.delete(SETUP_COOKIE);
+}
+
+/** Uniform API error shape: `{ error: CODE, issues?: [...] }`. */
+export function apiError(status: number, code: string, issues?: unknown) {
+  return Response.json({ error: code, ...(issues ? { issues } : {}) }, { status });
+}
+
+/** Wrap a route handler with uniform error → structured JSON mapping. */
 export function withAuth<T extends unknown[]>(
   handler: (...args: T) => Promise<Response>,
 ): (...args: T) => Promise<Response> {
@@ -78,10 +125,20 @@ export function withAuth<T extends unknown[]>(
       return await handler(...args);
     } catch (err) {
       if (err instanceof AuthError) {
-        return Response.json({ error: err.message }, { status: err.status });
+        return apiError(err.status, err.message);
+      }
+      if (err instanceof ZodError) {
+        return apiError(
+          400,
+          "VALIDATION_ERROR",
+          err.issues.map((i) => ({ path: i.path.join("."), code: i.code, message: i.message })),
+        );
+      }
+      if (err instanceof SyntaxError) {
+        return apiError(400, "INVALID_JSON");
       }
       console.error(err);
-      return Response.json({ error: "INTERNAL_ERROR" }, { status: 500 });
+      return apiError(500, "INTERNAL_ERROR");
     }
   };
 }

@@ -17,6 +17,7 @@ const STAFF_NAV = [
   { href: "/console/boards", key: "boards", icon: "lucide:circuit-board" },
   { href: "/console/experiments", key: "experiments", icon: "lucide:flask-conical" },
   { href: "/console/assignments", key: "assignments", icon: "lucide:pen-line" },
+  { href: "/console/settings", key: "settings", icon: "lucide:settings-2" },
 ] as const;
 
 export function AppShell({ children }: { children: React.ReactNode }) {

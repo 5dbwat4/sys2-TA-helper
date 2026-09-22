@@ -11,7 +11,7 @@ export const POST = withAuth(async (request: Request) => {
   const challengeToken = store.get("passkey_challenge")?.value;
   if (!challengeToken) return Response.json({ error: "MISSING_CHALLENGE" }, { status: 400 });
 
-  let session: { challenge: string; userId: string };
+  let session: { challenge: string; userId: string; setupStudentId?: string };
   try {
     session = jwt.verify(challengeToken, env.jwtSecret) as typeof session;
   } catch {
@@ -34,12 +34,31 @@ export const POST = withAuth(async (request: Request) => {
     return Response.json({ error: "VERIFICATION_FAILED" }, { status: 400 });
   }
 
+  // Resolve the user row. In the setup flow the userId may be a studentId
+  // placeholder; the row is created later by /api/auth/setup, so we must
+  // ensure a user row exists to attach the passkey to.
+  let userId = session.userId;
+  let user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user && session.setupStudentId) {
+    user = await prisma.user.upsert({
+      where: { studentId: session.setupStudentId },
+      update: {},
+      create: {
+        studentId: session.setupStudentId,
+        name: session.setupStudentId,
+        role: "TA",
+      },
+    });
+    userId = user.id;
+  }
+  if (!user) return Response.json({ error: "USER_NOT_FOUND" }, { status: 404 });
+
   const { credential, credentialDeviceType, credentialBackedUp } = registrationInfo;
 
   await prisma.passkey.create({
     data: {
       id: credential.id,
-      userId: session.userId,
+      userId,
       publicKey: Buffer.from(credential.publicKey),
       counter: BigInt(credential.counter),
       deviceType: credentialDeviceType,
