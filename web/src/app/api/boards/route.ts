@@ -49,8 +49,94 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const { studentId, dbNo } = await req.json();
+    const body = await req.json();
+    const { action } = body;
 
+    // 1. Single Board Creation
+    if (action === 'create') {
+      const { assetNo, dbNo, contactPhone } = body;
+      if (!assetNo?.trim() || !dbNo?.trim()) {
+        return NextResponse.json({ error: '资产编号与 DB 编号均为必填项' }, { status: 400 });
+      }
+
+      const cleanAssetNo = assetNo.trim();
+      const cleanDbNo = dbNo.trim();
+
+      // Check if board already exists
+      const existing = await prisma.board.findFirst({
+        where: {
+          OR: [
+            { assetNo: cleanAssetNo },
+            { dbNo: cleanDbNo }
+          ]
+        }
+      });
+
+      if (existing) {
+        return NextResponse.json({
+          error: `开发板已存在！已有资产编号 [${existing.assetNo}] 或 DB 编号 [${existing.dbNo}]`
+        }, { status: 400 });
+      }
+
+      const board = await prisma.board.create({
+        data: {
+          assetNo: cleanAssetNo,
+          dbNo: cleanDbNo,
+          contactPhone: contactPhone?.trim() || null
+        }
+      });
+
+      return NextResponse.json({ success: true, board });
+    }
+
+    // 2. Batch Board Creation
+    if (action === 'batch_create') {
+      const { boards } = body;
+      if (!Array.isArray(boards) || boards.length === 0) {
+        return NextResponse.json({ error: '请提供有效的开发板列表' }, { status: 400 });
+      }
+
+      const created: any[] = [];
+      const skipped: string[] = [];
+
+      for (let i = 0; i < boards.length; i++) {
+        const item = boards[i];
+        const assetNo = item.assetNo?.toString().trim();
+        const dbNo = item.dbNo?.toString().trim();
+        const contactPhone = item.contactPhone?.toString().trim() || null;
+
+        if (!assetNo || !dbNo) {
+          skipped.push(`第 ${i + 1} 行: 资产编号或 DB 编号为空`);
+          continue;
+        }
+
+        const existing = await prisma.board.findFirst({
+          where: {
+            OR: [{ assetNo }, { dbNo }]
+          }
+        });
+
+        if (existing) {
+          skipped.push(`第 ${i + 1} 行 [${assetNo} / ${dbNo}]: 已存在`);
+          continue;
+        }
+
+        const b = await prisma.board.create({
+          data: { assetNo, dbNo, contactPhone }
+        });
+        created.push(b);
+      }
+
+      return NextResponse.json({
+        success: true,
+        createdCount: created.length,
+        created,
+        skipped
+      });
+    }
+
+    // 3. Assign Board to Student (default)
+    const { studentId, dbNo } = body;
     if (!studentId || !dbNo) {
       return NextResponse.json({ error: 'Missing studentId or dbNo' }, { status: 400 });
     }
@@ -184,6 +270,56 @@ export async function PUT(req: Request) {
       students,
       returnedAt: now,
       remainingCount
+    });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    const dbNo = searchParams.get('dbNo');
+
+    if (!id && !dbNo) {
+      return NextResponse.json({ error: '请提供开发板 ID 或 DB 编号' }, { status: 400 });
+    }
+
+    const board = await prisma.board.findFirst({
+      where: {
+        OR: [
+          ...(id ? [{ id }] : []),
+          ...(dbNo ? [{ dbNo }] : [])
+        ]
+      },
+      include: {
+        assignments: {
+          where: { isReturned: false }
+        }
+      }
+    });
+
+    if (!board) {
+      return NextResponse.json({ error: '开发板不存在' }, { status: 404 });
+    }
+
+    if (board.assignments.length > 0) {
+      return NextResponse.json({ error: '该开发板当前已被借出，请先归还后再删除' }, { status: 400 });
+    }
+
+    // Delete assignments history first to avoid foreign key constraints
+    await prisma.boardAssignment.deleteMany({
+      where: { boardId: board.id }
+    });
+
+    await prisma.board.delete({
+      where: { id: board.id }
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: `已成功删除开发板 ${board.dbNo} (${board.assetNo})`
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
