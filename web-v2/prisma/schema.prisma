@@ -25,6 +25,10 @@ model User {
   name      String
   role      Role     @default(STUDENT)
   
+  // TA credentials (username + hashed password), set during first-time setup
+  username     String?  @unique
+  passwordHash String?
+
   // Encrypted ZJUAM credentials for TA
   zjuamAccount String?
   zjuamPassword String? // Encrypted
@@ -164,4 +168,3 @@ model QuizScore {
 
   @@unique([quizId, studentId])
 }
-

@@ -10,12 +10,14 @@
 
 | 目录 / 文件 | 说明 |
 | :--- | :--- |
-| [`web/`](web/) | **新版全功能助教管理台**：基于 Next.js 16 + React 19 + Tailwind CSS v4 + Prisma ORM + MySQL 打造。支持毛玻璃 Glassmorphism 视觉风格，自适应深色/浅色高对比度主题切换。 |
+| [`web-v2/`](web-v2/) | **新版全功能助教管理台**：基于 Next.js 16 + React 19 + HeroUI + Tailwind CSS v4 + Prisma ORM 打造，支持 i18n 与深浅色模式。 |
+| [`web-legacy/`](web-legacy/) | **旧版助教管理台**（保留参考）：原 `web/` 目录的 Next.js 实现。 |
 | [`zju-course/`](zju-course/) | **学在浙大（courses.zju.edu.cn）集成工具**：ZJUAM 统一身份认证（RSA 裸模幂加密）、课程作业同步、Lab 成绩自动拉取与批量合并。 |
 | [`2025_CS_II/`](2025_CS_II/) | **实验思考题题库**：LaTeX 格式编写的各 Lab 思考题与知识点索引（不含答案，保证评测严谨）。 |
 | [`deploy.sh`](deploy.sh) | **生产环境一键部署脚本**：自动安装依赖、Prisma Schema 同步、数据库初始化与 PM2 平滑重启。 |
 
 ---
+
 
 ## 核心功能特性
 
@@ -52,13 +54,13 @@
 
 ### 环境变量配置
 
-请在 `web/` 目录下复制环境变量模板：
+请在 `web-v2/` 目录下复制环境变量模板：
 ```bash
-cp web/.env.example web/.env
+cp web-v2/.env.example web-v2/.env
 ```
-编辑 `web/.env` 填写 MySQL 连接串与 JWT 密钥：
+编辑 `web-v2/.env` 填写数据库连接串与 JWT 密钥：
 ```env
-DATABASE_URL="mysql://ta:your_password@localhost:3306/teach_assist"
+DATABASE_URL="file:./dev.db"
 JWT_SECRET="your_jwt_secret_key_change_me"
 ```
 
@@ -66,7 +68,7 @@ JWT_SECRET="your_jwt_secret_key_change_me"
 
 ```bash
 # 进入前端目录
-cd web
+cd web-v2
 
 # 安装依赖
 npm install

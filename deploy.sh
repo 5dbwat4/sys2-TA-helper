@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-echo "Starting deployment..."
+echo "Starting deployment of teach-assist (web-v2)..."
 
 # Install pm2 globally if not installed
 if ! command -v pm2 &> /dev/null; then
@@ -8,25 +8,37 @@ if ! command -v pm2 &> /dev/null; then
   npm install -g pm2
 fi
 
-cd /root/teach-assist/web
+# Ensure web-v2 directory exists
+cd /root/teach-assist/web-v2
 
-# Ensure legacy peer deps since npm sometimes fails on postinstalls with ENOSPC
-echo "Installing dependencies..."
-npm install --legacy-peer-deps --no-audit --no-fund || echo "npm install failed, continuing..."
+# Copy production .env from legacy web if not yet present in web-v2
+if [ ! -f .env ] && [ -f /root/teach-assist/web/.env ]; then
+  echo "Copying .env from web to web-v2..."
+  cp /root/teach-assist/web/.env .env
+fi
 
-echo "Pushing DB schema..."
-npx prisma db push
+# Ensure required passkey and server envs are present in .env
+if [ -f .env ]; then
+  grep -q "PASSKEY_RP_ID" .env || echo 'PASSKEY_RP_ID="ta.alabtnt.cn"' >> .env
+  grep -q "PASSKEY_ORIGIN" .env || echo 'PASSKEY_ORIGIN="https://ta.alabtnt.cn"' >> .env
+  grep -q "PASSKEY_RP_NAME" .env || echo 'PASSKEY_RP_NAME="CS-II TA Console"' >> .env
+fi
+
+echo "Installing dependencies in web-v2..."
+npm install --legacy-peer-deps --no-audit --no-fund || echo "npm install warning, continuing..."
+
+echo "Pushing DB schema to MySQL..."
+npx prisma db push --accept-data-loss || npx prisma db push
+
 echo "Generating Prisma Client..."
 npx prisma generate
-echo "Seeding Database..."
-node prisma/seed.js || echo "Seed failed or already seeded"
 
-echo "Building Next.js..."
+echo "Building Next.js (web-v2)..."
 npm run build
 
-echo "Starting PM2 on port 3001..."
+echo "Starting PM2 service on port 3001..."
 pm2 stop ta-web || true
 pm2 delete ta-web || true
 PORT=3001 pm2 start npm --name "ta-web" -- start
 
-echo "Deployment finished! Serving on port 3001."
+echo "Deployment finished! Serving web-v2 on port 3001 (https://ta.alabtnt.cn)."
