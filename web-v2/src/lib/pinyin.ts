@@ -70,6 +70,7 @@ const STUDENT_PINYIN_MAP: Record<string, string> = {
   "王凯昕": "wkx",
   "尹杰": "yj",
   "薛磊": "xl",
+  "童熙年": "txn",
 };
 
 export function getPinyinInitials(name: string): string {

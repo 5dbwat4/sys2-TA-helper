@@ -17,6 +17,10 @@ const TEACHER_ACCOUNTS = [
   { studentId: 'teacher_luli', name: '卢立' },
 ];
 
+const ADDITIONAL_STUDENTS = [
+  { studentId: '3250105882', name: '童熙年' },
+];
+
 const CHECKPOINT_STUDENT_NAMES = ['王若辰', '汝以恒'];
 
 function cleanLatex(text) {
@@ -70,6 +74,20 @@ async function main() {
     }
     console.log('Processed dmc.xlsx (70 students)');
   }
+
+  // 1.1 Process additional manual students
+  for (const st of ADDITIONAL_STUDENTS) {
+    await prisma.user.upsert({
+      where: { studentId: st.studentId },
+      update: { name: st.name },
+      create: {
+        studentId: st.studentId,
+        name: st.name,
+        role: 'STUDENT',
+      },
+    });
+  }
+  console.log(`Processed additional students (${ADDITIONAL_STUDENTS.length})`);
 
   // 2. Process sign.csv (Boards and Assignments)
   const signPath = path.join(__dirname, '../../sign.csv');
