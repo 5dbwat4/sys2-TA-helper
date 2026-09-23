@@ -147,7 +147,12 @@
     "saved": "Saved",
     "removed": "Removed",
     "confirmRemove": "Remove this item?",
-    "primaryNote": "ZJUAM / Token always work as your primary sign-in. Everything below is an optional convenience."
+    "primaryNote": "ZJUAM / Token always work as your primary sign-in. Everything below is an optional convenience.",
+    "prefs": "Preferences",
+    "checkoffMode": "Checkoff device mode",
+    "checkoffModeDesc": "Single: everything on this device. Multi: generate a slave code and show the checkoff UI to students on a second device.",
+    "modeSingle": "Single device",
+    "modeMulti": "Multi device"
   },
   "console": {
     "title": "Console",
@@ -196,7 +201,23 @@
     "saveAndNext": "Save & next student",
     "saved": "Saved",
     "noExperiment": "Create an experiment first",
-    "allChecked": "All students checked for this experiment"
+    "allChecked": "All students checked for this experiment",
+    "multi": {
+      "slaveCode": "Slave code",
+      "slaveUrl": "Open on another device",
+      "orCodeHint": "Or visit /checkin and enter the 6-digit code",
+      "copyLink": "Copy link",
+      "copied": "Copied",
+      "studentSubmitted": "Student submitted",
+      "useThis": "Locate this student",
+      "idleHere": "Check off Lab"
+    }
+  },
+  "checkin": {
+    "joinTitle": "Enter slave code",
+    "joinNotFound": "Session not found or expired",
+    "joinPlaceholder": "6-digit code",
+    "join": "Join"
   },
   "boards": {
     "title": "Boards",
@@ -283,5 +304,11 @@
     "checkpoint": "Checkpoint",
     "noBoard": "No board currently borrowed",
     "noGrades": "No grades yet"
+  },
+  "checkin": {
+    "joinTitle": "Enter checkoff code",
+    "joinHint": "Enter the 6-digit code shown on the TA console",
+    "joinSubmit": "Enter checkoff",
+    "joinNotFound": "Session not found. Please check the code and try again."
   }
 }

@@ -3,12 +3,13 @@
   "version": "2.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node server.js",
     "build": "next build",
-    "start": "next start",
+    "start": "cross-env NODE_ENV=production node server.js",
     "lint": "eslint",
     "db:push": "prisma db push",
-    "db:seed": "node prisma/seed.js"
+    "db:seed": "node prisma/seed.js",
+    "db:seed:ta": "node prisma/seed-ta.js"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
@@ -25,16 +26,20 @@
     "axios": "^1.7.0",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
+    "cross-env": "^10.1.0",
     "csv-parse": "^5.6.0",
     "jsonwebtoken": "^9.0.2",
     "motion": "^13.4.0",
     "next": "^16.3.5",
     "next-intl": "^4.14.6",
     "next-themes": "^0.4.4",
+    "pinyin-pro": "^3.29.4",
     "prisma": "^5.20.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "server-only": "^0.0.1",
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3",
     "sonner": "^1.7.0",
     "swr": "^2.2.5",
     "tailwind-merge": "^2.5.0",

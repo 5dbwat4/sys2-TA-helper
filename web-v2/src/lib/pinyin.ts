@@ -1,4 +1,6 @@
-// Precomputed Pinyin initials mapping for all 70 students in 2026 CS II
+import { pinyin } from "pinyin-pro";
+
+// Precomputed Pinyin initials mapping for all students in 2026 CS II
 const STUDENT_PINYIN_MAP: Record<string, string> = {
   "曹知远": "czy",
   "陈思翰": "csh",
@@ -73,22 +75,44 @@ const STUDENT_PINYIN_MAP: Record<string, string> = {
   "童熙年": "txn",
 };
 
+export interface PinyinInfo {
+  /** Full tone-less pinyin, lowercase, no separators, e.g. "wangruochen" */
+  full: string;
+  /** Initials of each syllable, lowercase, e.g. "wrc" */
+  initials: string;
+}
+
+/**
+ * Compute searchable pinyin for a Chinese name.
+ * Used at write time (seed / import) so lookups stay cheap and dependency-free.
+ */
+export function computePinyin(name: string): PinyinInfo {
+  const trimmed = (name ?? "").trim();
+  if (!trimmed) return { full: "", initials: "" };
+
+  const full = pinyin(trimmed, { toneType: "none", type: "array", nonZh: "consecutive" })
+    .join("")
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+
+  const initials = pinyin(trimmed, {
+    pattern: "first",
+    toneType: "none",
+    type: "array",
+    nonZh: "consecutive",
+  })
+    .join("")
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+
+  return { full, initials };
+}
+
 export function getPinyinInitials(name: string): string {
   if (!name) return "";
   const trimmed = name.trim();
   if (STUDENT_PINYIN_MAP[trimmed]) {
     return STUDENT_PINYIN_MAP[trimmed];
   }
-  const letters = 'abcdefghjklmnopqrstwxyz';
-  const boundaries = '阿八嚓哒妸发旮哈讥咔垃妈拿噢妑七呥仨他哇夕丫帀';
-  return Array.from(trimmed).map(char => {
-    if (/[a-zA-Z0-9]/.test(char)) return char.toLowerCase();
-    for (let i = boundaries.length - 1; i >= 0; i--) {
-      if (char.localeCompare(boundaries[i], 'zh-Hans-CN') >= 0) {
-        return letters[i];
-      }
-    }
-    return char.toLowerCase();
-  }).join('');
+  return computePinyin(trimmed).initials;
 }
-

@@ -37,7 +37,10 @@ export const env = {
   get dingtalkSecret() {
     return process.env.DINGTALK_SECRET ?? "";
   },
-  /** Comma-separated student IDs allowed to register/login as TA. */
+  /**
+   * Comma-separated student IDs allowed to register/login as TA.
+   * Empty means "unconfigured": callers should fall back to the DB role.
+   */
   get taRoster(): string[] {
     return (process.env.TA_ROSTER ?? "")
       .split(",")
