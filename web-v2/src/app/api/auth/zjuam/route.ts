@@ -18,8 +18,10 @@ const bodySchema = z.object({
 export const POST = withAuth(async (request: Request) => {
   const { account, password, scope } = bodySchema.parse(await request.json());
 
+  const roster = env.taRoster;
+
   // 1. Roster check — only whitelisted student IDs may be TA
-  if (!env.taRoster.includes(account)) {
+  if (roster.length > 0 && !roster.includes(account)) {
     return Response.json({ error: "NOT_IN_TA_ROSTER" }, { status: 403 });
   }
 
@@ -32,6 +34,13 @@ export const POST = withAuth(async (request: Request) => {
   }
 
   const existing = await prisma.user.findUnique({ where: { studentId: account } });
+
+  // 2b. TA_ROSTER unconfigured (empty) → fall back to the DB as the source of
+  //     truth: only pre-provisioned users already marked role="TA" may proceed.
+  //     This prevents an empty roster from locking out every TA.
+  if (roster.length === 0 && existing?.role !== "TA") {
+    return Response.json({ error: "NOT_IN_TA_ROSTER" }, { status: 403 });
+  }
 
   // 3a. First time (or profile incomplete) → issue a setup ticket, no session yet
   if (!existing || !existing.username) {
